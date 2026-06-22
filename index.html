@@ -1,0 +1,1172 @@
+cat > /home/claude/geologo-simulator.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoSim — Simulador de Geólogo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0a; font-family: 'Courier New', monospace; overflow: hidden; color: #e8dcc8; }
+  #canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 10; }
+  #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 18px; height: 18px; }
+  #crosshair::before, #crosshair::after { content:''; position:absolute; background:rgba(255,255,255,0.85); }
+  #crosshair::before { width:2px; height:100%; left:50%; transform:translateX(-50%); }
+  #crosshair::after  { width:100%; height:2px; top:50%; transform:translateY(-50%); }
+  #stats { position:absolute; top:12px; left:12px; display:flex; flex-direction:column; gap:6px; }
+  .stat-row { display:flex; align-items:center; gap:8px; font-size:12px; }
+  .stat-label { color:#aaa; width:60px; text-transform:uppercase; letter-spacing:1px; font-size:10px; }
+  .bar-bg { width:120px; height:6px; background:rgba(255,255,255,0.1); border-radius:3px; }
+  .bar-fill { height:100%; border-radius:3px; transition:width 0.3s; }
+  .bar-energy { background:linear-gradient(90deg,#f0c040,#e88a00); }
+  .bar-health  { background:linear-gradient(90deg,#60d060,#20a020); }
+  .stat-val { font-size:11px; color:#ccc; }
+  #money { position:absolute; top:12px; right:12px; font-size:20px; font-weight:bold; color:#f0c040; text-shadow:0 0 20px rgba(240,192,64,0.5); }
+  #money span { font-size:12px; color:#aaa; }
+  #job-info { position:absolute; top:12px; left:50%; transform:translateX(-50%); text-align:center; font-size:11px; color:#bbb; }
+  #job-title { font-size:14px; color:#f0c040; font-weight:bold; letter-spacing:2px; }
+  #time-display { position:absolute; bottom:80px; right:12px; font-size:12px; color:#aaa; text-align:right; }
+  #inventory { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:6px; pointer-events:auto; }
+  .inv-slot { width:52px; height:52px; background:rgba(20,20,20,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:4px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color 0.2s; font-size:22px; position:relative; }
+  .inv-slot:hover { border-color:rgba(240,192,64,0.6); }
+  .inv-slot.active { border-color:#f0c040; box-shadow:0 0 10px rgba(240,192,64,0.4); }
+  .inv-slot .slot-count { position:absolute; bottom:2px; right:4px; font-size:10px; color:#f0c040; }
+  .inv-slot .slot-key { position:absolute; top:2px; left:4px; font-size:9px; color:#666; }
+  #interact-prompt { position:absolute; bottom:100px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.7); border:1px solid rgba(240,192,64,0.4); padding:8px 18px; border-radius:4px; font-size:13px; color:#f0c040; display:none; text-align:center; }
+  #tasks { position:absolute; bottom:80px; left:12px; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:10px 14px; min-width:200px; }
+  #tasks h3 { font-size:10px; color:#888; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
+  .task-item { font-size:12px; color:#ccc; margin:3px 0; display:flex; gap:6px; }
+  .task-item.done { color:#60d060; }
+  .task-item.done::before { content:'✓'; }
+  .task-item:not(.done)::before { content:'○'; color:#666; }
+  #minimap { position:absolute; top:12px; right:160px; width:90px; height:90px; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; }
+  #minimap canvas { width:100%; height:100%; }
+  #notification { position:absolute; top:50%; left:50%; transform:translate(-50%,-200%); background:rgba(0,0,0,0.85); border:1px solid #f0c040; padding:10px 24px; border-radius:4px; font-size:13px; color:#f0c040; transition:transform 0.4s,opacity 0.4s; opacity:0; pointer-events:none; text-align:center; }
+  #notification.show { transform:translate(-50%,-50%); opacity:1; }
+  #menu-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.92); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
+  #menu-overlay h1 { font-size:42px; font-weight:bold; color:#f0c040; text-shadow:0 0 40px rgba(240,192,64,0.5); letter-spacing:6px; text-transform:uppercase; margin-bottom:10px; }
+  #menu-overlay h2 { font-size:14px; color:#888; letter-spacing:3px; margin-bottom:30px; }
+  #job-select { display:flex; gap:20px; margin-top:10px; }
+  .job-card { background:rgba(20,20,20,0.9); border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:20px 24px; width:200px; cursor:pointer; transition:all 0.2s; text-align:center; }
+  .job-card:hover { border-color:#f0c040; background:rgba(240,192,64,0.08); }
+  .job-card .job-icon { font-size:40px; margin-bottom:10px; }
+  .job-card .job-name { font-size:15px; color:#f0c040; font-weight:bold; letter-spacing:2px; margin-bottom:6px; }
+  .job-card .job-desc { font-size:11px; color:#888; line-height:1.5; }
+  #dialog { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:rgba(10,10,10,0.95); border:1px solid rgba(240,192,64,0.3); border-radius:6px; padding:16px 24px; max-width:500px; z-index:50; display:none; }
+  #dialog .dialog-name { font-size:11px; color:#f0c040; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
+  #dialog .dialog-text { font-size:13px; color:#ddd; line-height:1.6; }
+  #dialog .dialog-actions { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+  #dialog .d-btn { background:rgba(240,192,64,0.1); border:1px solid rgba(240,192,64,0.3); color:#f0c040; padding:6px 14px; font-family:'Courier New',monospace; font-size:11px; cursor:pointer; border-radius:3px; letter-spacing:1px; pointer-events:auto; }
+  #dialog .d-btn:hover { background:rgba(240,192,64,0.25); }
+  #biome-label { position:absolute; top:60px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,0.4); letter-spacing:3px; text-transform:uppercase; }
+  #lock-prompt { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.8); border:1px solid rgba(240,192,64,0.5); color:#f0c040; padding:16px 32px; border-radius:6px; font-size:14px; text-align:center; z-index:200; display:none; letter-spacing:1px; }
+  #controls-bar { position:fixed; bottom:0; left:0; right:0; text-align:center; font-size:11px; color:#555; padding:6px; letter-spacing:1px; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div id="menu-overlay">
+  <h1>GeoSim</h1>
+  <h2>Simulador de Geólogo de Campo</h2>
+  <div id="job-select">
+    <div class="job-card" onclick="startGame('minero')">
+      <div class="job-icon">⛏️</div>
+      <div class="job-name">Minero</div>
+      <div class="job-desc">Trabajo en las montañas andinas. Explorá vetas, tomá muestras y analizá mineralización.</div>
+    </div>
+    <div class="job-card" onclick="startGame('petroleo')">
+      <div class="job-icon">🛢️</div>
+      <div class="job-name">Petrolero</div>
+      <div class="job-desc">Pozo en Vaca Muerta. Registrá perfiles sísmicos, logs y producción en la estepa neuquina.</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#555;margin-top:16px;letter-spacing:1px;">Hacé clic en el mapa para capturar el mouse y mirar con él</div>
+</div>
+
+<div id="hud" style="display:none">
+  <div id="crosshair"></div>
+  <div id="stats">
+    <div class="stat-row"><span class="stat-label">Energía</span><div class="bar-bg"><div class="bar-fill bar-energy" id="bar-energy" style="width:100%"></div></div><span class="stat-val" id="val-energy">100</span></div>
+    <div class="stat-row"><span class="stat-label">Salud</span><div class="bar-bg"><div class="bar-fill bar-health" id="bar-health" style="width:100%"></div></div><span class="stat-val" id="val-health">100</span></div>
+  </div>
+  <div id="money">$<span id="money-val">0</span> <span>ARS</span></div>
+  <div id="job-info"><div id="job-title">—</div><div id="job-subtitle" style="font-size:11px;color:#888;margin-top:2px;">—</div></div>
+  <div id="biome-label">—</div>
+  <div id="time-display"><div id="day-label">DÍA 1</div><div id="time-label">08:00</div></div>
+  <div id="tasks"><h3>Tareas del día</h3><div id="task-list"></div></div>
+  <div id="minimap"><canvas id="mm-canvas" width="90" height="90"></canvas></div>
+  <div id="inventory">
+    <div class="inv-slot active" data-slot="0"><span class="slot-key">1</span><span id="s0">🔨</span><span class="slot-count" id="c0"></span></div>
+    <div class="inv-slot" data-slot="1"><span class="slot-key">2</span><span id="s1">📋</span><span class="slot-count" id="c1"></span></div>
+    <div class="inv-slot" data-slot="2"><span class="slot-key">3</span><span id="s2">🧪</span><span class="slot-count" id="c2"></span></div>
+    <div class="inv-slot" data-slot="3"><span class="slot-key">4</span><span id="s3">💊</span><span class="slot-count" id="c3">3</span></div>
+    <div class="inv-slot" data-slot="4"><span class="slot-key">5</span><span id="s4">🥤</span><span class="slot-count" id="c4">2</span></div>
+    <div class="inv-slot" data-slot="5"><span class="slot-key">6</span><span id="s5"> </span><span class="slot-count" id="c5"></span></div>
+  </div>
+  <div id="interact-prompt">[ E ] Interactuar</div>
+  <div id="notification"></div>
+  <div id="dialog">
+    <div class="dialog-name" id="d-name"></div>
+    <div class="dialog-text" id="d-text"></div>
+    <div class="dialog-actions" id="d-actions"></div>
+  </div>
+</div>
+
+<div id="lock-prompt">Hacé clic para capturar el mouse y mirar libremente<br><span style="font-size:11px;color:#888;">ESC para soltar</span></div>
+<div id="controls-bar">WASD — moverse &nbsp;|&nbsp; MOUSE — mirar &nbsp;|&nbsp; E — interactuar &nbsp;|&nbsp; 1-6 — inventario &nbsp;|&nbsp; ESPACIO — saltar &nbsp;|&nbsp; F — usar ítem</div>
+
+<script type="importmap">{"imports":{"three":"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ══════════════════════════════════════════════════════
+// TEXTURE FACTORY — procedural canvas-based textures
+// ══════════════════════════════════════════════════════
+function makeTexture(w, h, drawFn) {
+  const c = document.createElement('canvas'); c.width=w; c.height=h;
+  const ctx = c.getContext('2d');
+  drawFn(ctx, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+// Rocky mountain ground
+function rockTexture() {
+  return makeTexture(512, 512, (ctx, w, h) => {
+    // Base stone grey
+    ctx.fillStyle = '#7a7060'; ctx.fillRect(0,0,w,h);
+    // Irregular rock tiles
+    for(let i=0;i<200;i++){
+      const x=Math.random()*w, y=Math.random()*h;
+      const s=8+Math.random()*30;
+      const l=40+Math.floor(Math.random()*30);
+      ctx.fillStyle=`hsl(30,${8+Math.random()*10}%,${l}%)`;
+      ctx.beginPath();
+      ctx.moveTo(x+s*Math.random(),y);
+      ctx.lineTo(x+s,y+s*Math.random());
+      ctx.lineTo(x+s*Math.random(),y+s);
+      ctx.lineTo(x,y+s*Math.random());
+      ctx.closePath(); ctx.fill();
+    }
+    // Cracks
+    for(let i=0;i<40;i++){
+      ctx.strokeStyle=`rgba(30,20,10,${0.3+Math.random()*0.4})`;
+      ctx.lineWidth=0.5+Math.random()*1.5;
+      ctx.beginPath();
+      let cx=Math.random()*w, cy=Math.random()*h;
+      ctx.moveTo(cx,cy);
+      for(let j=0;j<6;j++){cx+=(-15+Math.random()*30);cy+=(-15+Math.random()*30);ctx.lineTo(cx,cy);}
+      ctx.stroke();
+    }
+    // Mineral specks (pyrite-like)
+    for(let i=0;i<80;i++){
+      ctx.fillStyle=`rgba(200,180,80,${0.4+Math.random()*0.5})`;
+      ctx.fillRect(Math.random()*w, Math.random()*h, 1+Math.random()*3, 1+Math.random()*3);
+    }
+  });
+}
+
+// Snow/rock blend for high altitude
+function snowRockTexture() {
+  return makeTexture(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#9a9898'; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<300;i++){
+      const x=Math.random()*w,y=Math.random()*h,s=5+Math.random()*20;
+      const snow=Math.random()>0.5;
+      ctx.fillStyle=snow?`rgba(240,245,255,${0.6+Math.random()*0.4})`:`hsl(25,8%,${35+Math.random()*20}%)`;
+      ctx.beginPath(); ctx.ellipse(x,y,s,s*0.6,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
+    }
+    for(let i=0;i<20;i++){
+      ctx.strokeStyle='rgba(20,15,10,0.3)'; ctx.lineWidth=1;
+      ctx.beginPath(); let cx=Math.random()*w,cy=Math.random()*h; ctx.moveTo(cx,cy);
+      for(let j=0;j<8;j++){cx+=(-20+Math.random()*40);cy+=(-20+Math.random()*40);ctx.lineTo(cx,cy);}
+      ctx.stroke();
+    }
+  });
+}
+
+// Steppe / Vaca Muerta dry ground
+function steppeTexture() {
+  return makeTexture(512,512,(ctx,w,h)=>{
+    // Sandy base
+    ctx.fillStyle='#c8b88a'; ctx.fillRect(0,0,w,h);
+    // Subtle sandy variation
+    for(let i=0;i<500;i++){
+      const x=Math.random()*w,y=Math.random()*h,r=2+Math.random()*8;
+      ctx.fillStyle=`hsl(38,${25+Math.random()*20}%,${55+Math.random()*20}%)`;
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.5,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
+    }
+    // Dry cracks
+    for(let i=0;i<60;i++){
+      ctx.strokeStyle=`rgba(100,70,30,${0.15+Math.random()*0.25})`;
+      ctx.lineWidth=0.5+Math.random()*1;
+      ctx.beginPath(); let cx=Math.random()*w,cy=Math.random()*h; ctx.moveTo(cx,cy);
+      for(let j=0;j<5;j++){cx+=(-20+Math.random()*40);cy+=(-20+Math.random()*40);ctx.lineTo(cx,cy);}
+      ctx.stroke();
+    }
+    // Sparse dry grass patches
+    for(let i=0;i<120;i++){
+      const x=Math.random()*w,y=Math.random()*h;
+      ctx.fillStyle=`rgba(140,120,60,${0.4+Math.random()*0.4})`;
+      ctx.fillRect(x,y,1,4+Math.random()*6);
+      ctx.fillRect(x+2,y+2,1,3+Math.random()*4);
+    }
+  });
+}
+
+// Shale / sedimentary layered rock
+function shaleTexture() {
+  return makeTexture(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#6a6055'; ctx.fillRect(0,0,w,h);
+    // Horizontal bedding planes
+    for(let y=0;y<h;y+=3+Math.floor(Math.random()*8)){
+      const col=`hsl(25,${10+Math.random()*15}%,${25+Math.random()*25}%)`;
+      ctx.fillStyle=col;
+      ctx.fillRect(0,y,w,1+Math.random()*2);
+    }
+    // Fractures
+    for(let i=0;i<15;i++){
+      ctx.strokeStyle='rgba(20,15,10,0.5)'; ctx.lineWidth=0.8;
+      ctx.beginPath(); let cx=Math.random()*w; ctx.moveTo(cx,0);
+      for(let j=0;j<h/20;j++){cx+=(-8+Math.random()*16); ctx.lineTo(cx,j*20);}
+      ctx.stroke();
+    }
+    // Oil seep dark spots
+    for(let i=0;i<30;i++){
+      const x=Math.random()*w,y=Math.random()*h,r=3+Math.random()*8;
+      ctx.fillStyle=`rgba(10,8,5,${0.3+Math.random()*0.4})`;
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.6,0,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+// Rock face / cliff texture
+function cliffTexture() {
+  return makeTexture(256,512,(ctx,w,h)=>{
+    ctx.fillStyle='#5a5248'; ctx.fillRect(0,0,w,h);
+    for(let y=0;y<h;y+=4+Math.floor(Math.random()*12)){
+      ctx.fillStyle=`hsl(28,${12+Math.random()*10}%,${22+Math.random()*22}%)`;
+      ctx.fillRect(0,y,w,2+Math.random()*4);
+    }
+    for(let i=0;i<60;i++){
+      const x=Math.random()*w,y=Math.random()*h,s=4+Math.random()*20;
+      ctx.fillStyle=`rgba(255,230,180,${0.05+Math.random()*0.1})`;
+      ctx.fillRect(x,y,s,2);
+    }
+  });
+}
+
+// Wood beam texture
+function woodTexture() {
+  return makeTexture(256,256,(ctx,w,h)=>{
+    ctx.fillStyle='#7a5c38'; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<40;i++){
+      ctx.strokeStyle=`hsl(28,${30+Math.random()*20}%,${20+Math.random()*25}%)`;
+      ctx.lineWidth=1+Math.random()*2;
+      ctx.beginPath(); ctx.moveTo(0,Math.random()*h); ctx.lineTo(w,Math.random()*h); ctx.stroke();
+    }
+  });
+}
+
+// Steel / metal texture
+function steelTexture() {
+  return makeTexture(256,256,(ctx,w,h)=>{
+    const g=ctx.createLinearGradient(0,0,w,0);
+    g.addColorStop(0,'#8a8a8a'); g.addColorStop(0.4,'#cccccc'); g.addColorStop(0.6,'#aaaaaa'); g.addColorStop(1,'#888888');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    // Brushed lines
+    for(let i=0;i<80;i++){
+      ctx.strokeStyle=`rgba(255,255,255,${0.03+Math.random()*0.06})`;
+      ctx.lineWidth=0.5;
+      const y=Math.random()*h;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y+(-2+Math.random()*4)); ctx.stroke();
+    }
+    // Rust spots
+    for(let i=0;i<20;i++){
+      ctx.fillStyle=`rgba(150,70,20,${0.2+Math.random()*0.3})`;
+      const x=Math.random()*w,y=Math.random()*h,r=2+Math.random()*6;
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.7,0,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+// Normal map from a height texture (emboss)
+function makeNormalMap(srcTexture) {
+  const img = srcTexture.image;
+  const w=img.width, h=img.height;
+  const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h;
+  const ctx = tmp.getContext('2d'); ctx.drawImage(img,0,0);
+  const src = ctx.getImageData(0,0,w,h);
+  const dst = ctx.createImageData(w,h);
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      const l=src.data[((y*w+Math.max(0,x-1))*4)];
+      const r=src.data[((y*w+Math.min(w-1,x+1))*4)];
+      const u=src.data[((Math.max(0,y-1)*w+x)*4)];
+      const d=src.data[((Math.min(h-1,y+1)*w+x)*4)];
+      dst.data[i]   = Math.min(255,128+(r-l));
+      dst.data[i+1] = Math.min(255,128+(d-u));
+      dst.data[i+2] = 200;
+      dst.data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(dst,0,0);
+  const t = new THREE.CanvasTexture(tmp);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+// Pre-bake all textures once
+const TEX = {};
+function initTextures() {
+  TEX.rock    = rockTexture();       TEX.rock.repeat.set(12,12);
+  TEX.snow    = snowRockTexture();   TEX.snow.repeat.set(10,10);
+  TEX.steppe  = steppeTexture();     TEX.steppe.repeat.set(20,20);
+  TEX.shale   = shaleTexture();      TEX.shale.repeat.set(8,8);
+  TEX.cliff   = cliffTexture();      TEX.cliff.repeat.set(4,8);
+  TEX.wood    = woodTexture();       TEX.wood.repeat.set(2,4);
+  TEX.steel   = steelTexture();      TEX.steel.repeat.set(3,3);
+}
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+const state = {
+  job:null, energy:100, health:100, money:0,
+  day:1, hour:8, minute:0,
+  selectedSlot:0,
+  inventory:[
+    {name:'Martillo',    icon:'🔨', count:1, type:'tool'},
+    {name:'Libreta',     icon:'📋', count:1, type:'tool'},
+    {name:'Kit muestras',icon:'🧪', count:5, type:'tool'},
+    {name:'Pastillas',   icon:'💊', count:3, type:'consumable'},
+    {name:'Agua',        icon:'🥤', count:2, type:'consumable'},
+    {name:'(vacío)',     icon:' ',  count:0, type:'empty'},
+  ],
+  tasks:[], samplesCollected:0, logsRecorded:0,
+  nearObject:null, dialogOpen:false, paused:false,
+};
+
+// ══════════════════════════════════════════════════════
+// RENDERER / SCENE
+// ══════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 600);
+camera.position.set(0,1.7,0);
+
+// ── LIGHTS ──
+const sun = new THREE.DirectionalLight(0xffe8c0, 1.4);
+sun.position.set(120,200,80);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.near=1; sun.shadow.camera.far=700;
+sun.shadow.camera.left=-250; sun.shadow.camera.right=250;
+sun.shadow.camera.top=250; sun.shadow.camera.bottom=-250;
+sun.shadow.bias = -0.0003;
+scene.add(sun);
+const ambient = new THREE.AmbientLight(0x4060a0,0.5);
+scene.add(ambient);
+const hemi = new THREE.HemisphereLight(0x88bbdd,0xa07040,0.5);
+scene.add(hemi);
+
+// ══════════════════════════════════════════════════════
+// NOISE + TERRAIN HELPERS
+// ══════════════════════════════════════════════════════
+function hash(x,z){return Math.sin(x*127.1+z*311.7)*43758.5453%1;}
+function smoothNoise(x,z){
+  const ix=Math.floor(x),iz=Math.floor(z),fx=x-ix,fz=z-iz;
+  const ux=fx*fx*(3-2*fx),uz=fz*fz*(3-2*fz);
+  const a=hash(ix,iz),b=hash(ix+1,iz),c=hash(ix,iz+1),d=hash(ix+1,iz+1);
+  return a+ux*(b-a)+uz*(c-a)+ux*uz*(a-b-c+d);
+}
+function fbm(x,z,oct=6,sc=1){
+  let v=0,a=1,f=sc,max=0;
+  for(let i=0;i<oct;i++){v+=smoothNoise(x*f,z*f)*a;max+=a;a*=0.5;f*=2.1;}
+  return v/max;
+}
+
+const terrainCache = new Map();
+function getTerrainY(x, z, groundMesh) {
+  const key = `${Math.round(x*2)},${Math.round(z*2)}`;
+  if(terrainCache.has(key)) return terrainCache.get(key);
+  const ray = new THREE.Raycaster(new THREE.Vector3(x,300,z),new THREE.Vector3(0,-1,0));
+  const hits = ray.intersectObject(groundMesh);
+  const y = hits.length ? hits[0].point.y : 0;
+  terrainCache.set(key,y);
+  return y;
+}
+
+// ══════════════════════════════════════════════════════
+// TERRAIN BUILDERS
+// ══════════════════════════════════════════════════════
+function buildMiningTerrain() {
+  scene.background = new THREE.Color(0x6090b0);
+  scene.fog = new THREE.FogExp2(0x6090b0, 0.007);
+
+  // Multi-layer terrain with vertex color blending
+  const geo = new THREE.PlaneGeometry(700,700,150,150);
+  geo.rotateX(-Math.PI/2);
+  const pos = geo.attributes.position;
+  const colors = [];
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i), z=pos.getZ(i);
+    const d=Math.sqrt(x*x+z*z)/350;
+    const mountain = Math.max(0,(1-d*1.1))*fbm(x,z,7,0.012)*90;
+    const detail   = fbm(x+500,z+500,4,0.06)*6;
+    const ridge    = Math.pow(Math.abs(fbm(x+200,z,3,0.02))-0.3,2)*40;
+    const h = mountain + detail + ridge;
+    pos.setY(i,h);
+    // Vertex colour: grass→rock→snow by height+slope
+    const t=Math.min(1,h/60);
+    const snow=t>0.65?((t-0.65)/0.35):0;
+    const rock=t>0.2?Math.min(1,(t-0.2)/0.45):0;
+    const r=0.45+rock*0.25+snow*0.45;
+    const g=0.5-rock*0.1+snow*0.45;
+    const b=0.35+snow*0.5;
+    colors.push(r,g,b);
+  }
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.computeVertexNormals();
+
+  // Use MeshStandardMaterial for PBR
+  const mat = new THREE.MeshStandardMaterial({
+    map: TEX.rock,
+    vertexColors: true,
+    roughness: 0.92,
+    metalness: 0.05,
+    envMapIntensity: 0.3,
+  });
+  const ground = new THREE.Mesh(geo, mat);
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Second snow layer at high altitude (overlay)
+  const snowGeo = new THREE.PlaneGeometry(700,700,80,80);
+  snowGeo.rotateX(-Math.PI/2);
+  const sp = snowGeo.attributes.position;
+  for(let i=0;i<sp.count;i++){
+    const x=sp.getX(i),z=sp.getZ(i);
+    const d=Math.sqrt(x*x+z*z)/350;
+    const h=Math.max(0,(1-d*1.1))*fbm(x,z,7,0.012)*90+fbm(x,z,4,0.06)*6;
+    sp.setY(i,h+0.08);
+  }
+  snowGeo.computeVertexNormals();
+  const snowMat = new THREE.MeshStandardMaterial({
+    map: TEX.snow, roughness:0.8, metalness:0,
+    transparent:true, opacity:0.0,
+    alphaTest:0.01,
+  });
+  // Snow only where high — handle per vertex with alphaMap workaround
+  // Just overlay a partial snow mesh for peaks
+  const snowMesh = new THREE.Mesh(snowGeo, snowMat);
+  // We'll tint it by height in animation
+  scene.add(snowMesh);
+
+  // Rock outcrops
+  for(let i=0;i<50;i++){
+    const x=(Math.random()-0.5)*400,z=(Math.random()-0.5)*400;
+    const gy=getTerrainY(x,z,ground);
+    addRock(x,gy,z, 1+Math.random()*4, 0.5+Math.random()*2);
+  }
+  // Mine shaft
+  addMineShaft(20,getTerrainY(20,30,ground)+0.1,30);
+  // Camp
+  addCamp(0,getTerrainY(0,-20,ground)+0.1,-20,false);
+  return ground;
+}
+
+function buildOilTerrain() {
+  scene.background = new THREE.Color(0xc0ccd8);
+  scene.fog = new THREE.FogExp2(0xc0ccd8,0.004);
+
+  const geo = new THREE.PlaneGeometry(900,900,120,120);
+  geo.rotateX(-Math.PI/2);
+  const pos = geo.attributes.position;
+  const colors=[];
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i),z=pos.getZ(i);
+    const roll=fbm(x,z,4,0.006)*12+fbm(x+300,z+300,3,0.025)*3;
+    pos.setY(i,roll);
+    // Steppe colour variation: ochre/beige with pale patches
+    const v=fbm(x+100,z+100,2,0.03);
+    const r=0.72+v*0.1; const g=0.65+v*0.08; const b=0.48+v*0.05;
+    colors.push(r,g,b);
+  }
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({
+    map: TEX.steppe,
+    normalMap: makeNormalMap(TEX.steppe),
+    normalScale: new THREE.Vector2(0.6,0.6),
+    vertexColors:true, roughness:0.95, metalness:0,
+  });
+  const ground = new THREE.Mesh(geo,mat);
+  ground.receiveShadow=true;
+  scene.add(ground);
+
+  // Shale outcrops (horizontal)
+  for(let i=0;i<25;i++){
+    const x=(Math.random()-0.5)*600,z=(Math.random()-0.5)*600;
+    const gy=getTerrainY(x,z,ground);
+    addShaleLayer(x,gy,z);
+  }
+  // Sparse bushes
+  for(let i=0;i<100;i++){
+    const x=(Math.random()-0.5)*600,z=(Math.random()-0.5)*600;
+    const gy=getTerrainY(x,z,ground);
+    addBush(x,gy,z);
+  }
+  // Oil rig
+  addOilRig(30,getTerrainY(30,30,ground),30);
+  // Camp / trailers
+  addCamp(0,getTerrainY(0,-30,ground)+0.1,-30,true);
+  return ground;
+}
+
+// ══════════════════════════════════════════════════════
+// SCENE OBJECTS
+// ══════════════════════════════════════════════════════
+const interactables=[];
+
+function addRock(x,y,z,sx,sy){
+  const seg=Math.floor(3+Math.random()*3);
+  const geo=new THREE.DodecahedronGeometry(sx,0);
+  // Displace verts for natural look
+  const pos=geo.attributes.position;
+  for(let i=0;i<pos.count;i++){
+    pos.setX(i,pos.getX(i)*(0.7+Math.random()*0.6));
+    pos.setY(i,pos.getY(i)*(0.7+Math.random()*0.6));
+    pos.setZ(i,pos.getZ(i)*(0.7+Math.random()*0.6));
+  }
+  geo.computeVertexNormals();
+  const mat=new THREE.MeshStandardMaterial({
+    map:TEX.cliff,
+    roughness:0.9, metalness:0.02,
+    color: new THREE.Color().setHSL(0.07, 0.12, 0.38+Math.random()*0.15),
+  });
+  const m=new THREE.Mesh(geo,mat);
+  m.position.set(x,y+sy*0.3,z);
+  m.scale.set(1,sy/sx,1);
+  m.rotation.set(Math.random()*1.5,Math.random()*6,Math.random()*1.5);
+  m.castShadow=true; m.receiveShadow=true;
+  scene.add(m);
+  if(sx>1.5){
+    m.userData={type:'rock',prompt:'[ E ] Tomar muestra de roca',id:'rock_'+i};
+    interactables.push(m);
+  }
+}
+
+function addShaleLayer(x,y,z){
+  const w=3+Math.random()*8,d=2+Math.random()*5;
+  const geo=new THREE.BoxGeometry(w,0.3+Math.random()*0.5,d);
+  const mat=new THREE.MeshStandardMaterial({map:TEX.shale,roughness:0.88,metalness:0.01});
+  const m=new THREE.Mesh(geo,mat);
+  m.position.set(x,y+0.2,z);
+  m.rotation.y=Math.random()*Math.PI;
+  m.castShadow=true; m.receiveShadow=true;
+  scene.add(m);
+  if(w>5){
+    m.userData={type:'rock',prompt:'[ E ] Muestrear pelita negra (Fm. Vaca Muerta)',id:'shale_'+x};
+    interactables.push(m);
+  }
+}
+
+function addBush(x,y,z){
+  const r=0.3+Math.random()*0.5;
+  const geo=new THREE.SphereGeometry(r,5,4);
+  const pos=geo.attributes.position;
+  for(let i=0;i<pos.count;i++){
+    pos.setX(i,pos.getX(i)*(0.8+Math.random()*0.4));
+    pos.setZ(i,pos.getZ(i)*(0.8+Math.random()*0.4));
+  }
+  geo.computeVertexNormals();
+  const hue=0.2+Math.random()*0.1;
+  const mat=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(hue,0.4,0.25+Math.random()*0.15),roughness:1,metalness:0});
+  const m=new THREE.Mesh(geo,mat);
+  m.position.set(x,y+r*0.5,z);
+  m.scale.set(1,0.6,1);
+  m.castShadow=true;
+  scene.add(m);
+}
+
+function addMineShaft(x,y,z){
+  // Timber beams with real wood texture
+  const beamMat=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.85,metalness:0});
+  [[-1.2,0],[1.2,0]].forEach(([ox])=>{
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.22,4.2,0.22),beamMat);
+    b.position.set(x+ox,y+2.1,z); b.castShadow=true; scene.add(b);
+  });
+  const top=new THREE.Mesh(new THREE.BoxGeometry(2.7,0.22,0.22),beamMat);
+  top.position.set(x,y+4.3,z); scene.add(top);
+  // Diagonal braces
+  [[- 1.2,0.8,2.8],[1.2,0.8,2.8]].forEach(([ox,oy,oh])=>{
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.15,oh,0.15),beamMat);
+    b.position.set(x+ox,y+oy,z); b.rotation.z=ox<0?0.5:-0.5; scene.add(b);
+  });
+  // Dark entrance
+  const ent=new THREE.Mesh(new THREE.BoxGeometry(2.1,2.6,1.2),new THREE.MeshStandardMaterial({color:0x080808,roughness:1}));
+  ent.position.set(x,y+1.3,z); scene.add(ent);
+  // Stone surround
+  const stoneMat=new THREE.MeshStandardMaterial({map:TEX.cliff,roughness:0.9,metalness:0,color:0x998877});
+  [-1.2,1.2].forEach(ox=>{
+    const s=new THREE.Mesh(new THREE.BoxGeometry(0.4,2.8,0.6),stoneMat);
+    s.position.set(x+ox,y+1.4,z-0.05); scene.add(s);
+  });
+  // Ore cart / tracks
+  const trackMat=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.6,metalness:0.8,color:0x888888});
+  for(let t=-2;t<=2;t+=0.8){
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.8),trackMat);
+    rail.position.set(x-0.5,y+0.04,z+t); scene.add(rail);
+    const rail2=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.8),trackMat);
+    rail2.position.set(x+0.5,y+0.04,z+t); scene.add(rail2);
+    if(Math.abs(t)<0.05){
+      const tie=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.04,0.15),new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.9}));
+      tie.position.set(x,y+0.01,z+t); scene.add(tie);
+    }
+  }
+  // Trigger
+  const trig=new THREE.Mesh(new THREE.BoxGeometry(3,3.5,2.5),new THREE.MeshBasicMaterial({visible:false}));
+  trig.position.set(x,y+1.75,z);
+  trig.userData={type:'mineshaft',prompt:'[ E ] Entrar al socavón',id:'mineshaft'};
+  scene.add(trig); interactables.push(trig);
+}
+
+function addOilRig(x,y,z){
+  const steelMat=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.5,metalness:0.8,color:0xbbbbbb});
+  const orangeMat=new THREE.MeshStandardMaterial({color:0xcc4400,roughness:0.6,metalness:0.4});
+  const yellowMat=new THREE.MeshStandardMaterial({color:0xeeaa00,roughness:0.6,metalness:0.3});
+  const darkMat=new THREE.MeshStandardMaterial({color:0x333333,roughness:0.7,metalness:0.6});
+
+  // Legs
+  [[-3,-3],[-3,3],[3,-3],[3,3]].forEach(([lx,lz])=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,16,8),steelMat);
+    leg.position.set(x+lx,y+8,z+lz); leg.castShadow=true; scene.add(leg);
+  });
+  // Cross bracing
+  for(let h=2;h<=16;h+=3){
+    [[0,0],[Math.PI/2,0]].forEach(([ry])=>{
+      const b=new THREE.Mesh(new THREE.BoxGeometry(6.5,0.14,0.14),steelMat);
+      b.position.set(x,y+h,z); b.rotation.y=ry; scene.add(b);
+    });
+    // Diagonal braces
+    const db=new THREE.Mesh(new THREE.BoxGeometry(0.1,3.5,0.1),steelMat);
+    db.position.set(x+2,y+h+1.5,z+2); db.rotation.z=0.4; db.rotation.x=0.4; scene.add(db);
+  }
+  // Crown block
+  const crown=new THREE.Mesh(new THREE.BoxGeometry(7.5,0.6,7.5),orangeMat);
+  crown.position.set(x,y+16.3,z); crown.castShadow=true; scene.add(crown);
+  // Travelling block / hook
+  const block=new THREE.Mesh(new THREE.BoxGeometry(1,1.5,0.6),steelMat);
+  block.position.set(x,y+10,z); scene.add(block);
+  // Drill floor (grated)
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(9,0.35,9),darkMat);
+  floor.position.set(x,y+0.17,z); floor.receiveShadow=true; scene.add(floor);
+  // Rotary table
+  const rt=new THREE.Mesh(new THREE.CylinderGeometry(1,1,0.5,12),new THREE.MeshStandardMaterial({color:0x222222,metalness:0.9,roughness:0.3}));
+  rt.position.set(x,y+0.5,z); scene.add(rt);
+  // Drill pipe (visible stub)
+  const pipe=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,4,8),steelMat);
+  pipe.position.set(x,y+2.5,z); scene.add(pipe);
+  // Dog house (driller cabin)
+  const cabinMat=new THREE.MeshStandardMaterial({color:0x445566,roughness:0.8,metalness:0.2});
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(3,2.5,3.5),cabinMat);
+  cabin.position.set(x+5,y+1.25,z); cabin.castShadow=true; scene.add(cabin);
+  const roofGeo=new THREE.ConeGeometry(2.5,1,4); roofGeo.rotateY(Math.PI/4);
+  const roof=new THREE.Mesh(roofGeo,new THREE.MeshStandardMaterial({color:0x334455,roughness:0.8}));
+  roof.position.set(x+5,y+3,z); scene.add(roof);
+  // Mud tanks
+  [3,-3].forEach(oz=>{
+    const tank=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,3.5,12),new THREE.MeshStandardMaterial({color:0x446688,roughness:0.6,metalness:0.3}));
+    tank.position.set(x-6,y+1.75,z+oz); tank.castShadow=true; scene.add(tank);
+  });
+  // Flare stack
+  const stack=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,8,8),steelMat);
+  stack.position.set(x-5,y+4,z-4); stack.castShadow=true; scene.add(stack);
+  const flareLight=new THREE.PointLight(0xff8800,2,10);
+  flareLight.position.set(x-5,y+8.5,z-4);
+  scene.add(flareLight);
+  state.flareLight=flareLight;
+  // Safety station (red box)
+  const safetyMat=new THREE.MeshStandardMaterial({color:0xee1111,roughness:0.6,metalness:0.2});
+  const safetyBox=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.3,0.45),safetyMat);
+  safetyBox.position.set(x-6,y+0.65,z+5);
+  safetyBox.userData={type:'safety',prompt:'[ E ] Revisar EDP / MSDS',id:'safety'};
+  scene.add(safetyBox); interactables.push(safetyBox);
+  // Main trigger
+  const trig=new THREE.Mesh(new THREE.BoxGeometry(10,17,10),new THREE.MeshBasicMaterial({visible:false}));
+  trig.position.set(x,y+8.5,z);
+  trig.userData={type:'oilrig',prompt:'[ E ] Acceder al pozo VP-27',id:'oilrig'};
+  scene.add(trig); interactables.push(trig);
+}
+
+function addCamp(x,y,z,trailers=false){
+  if(trailers){
+    [[-4,0,'#c8c8c8'],[4,0,'#d0d0d0'],[0,5,'#cccccc']].forEach(([tx,tz,col])=>{
+      const mat=new THREE.MeshStandardMaterial({color:col,roughness:0.7,metalness:0.15});
+      const t=new THREE.Mesh(new THREE.BoxGeometry(4.5,2.4,2.8),mat);
+      t.position.set(x+tx,y+1.2,z+tz); t.castShadow=true; t.receiveShadow=true; scene.add(t);
+      // Windows
+      const wm=new THREE.MeshStandardMaterial({color:0x88aacc,roughness:0.1,metalness:0.1});
+      [-1.2,1.2].forEach(wx=>{
+        const w=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.5,0.05),wm);
+        w.position.set(x+tx+wx,y+1.5,z+tz-1.43); scene.add(w);
+      });
+    });
+    addVehicle(x+10,y,z+2);
+  } else {
+    // Tent
+    const tentGeo=new THREE.ConeGeometry(3.2,2.8,4);
+    const tent=new THREE.Mesh(tentGeo,new THREE.MeshStandardMaterial({color:0xc87820,roughness:0.9,metalness:0}));
+    tent.position.set(x,y+1.4,z); tent.rotation.y=Math.PI/4; tent.castShadow=true; scene.add(tent);
+    // Tent guy lines
+    for(let i=0;i<4;i++){
+      const a=i*Math.PI/2;
+      const line=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,3,4),
+        new THREE.MeshStandardMaterial({color:0xddddbb,roughness:0.9}));
+      line.position.set(x+Math.cos(a)*2.5,y+1,z+Math.sin(a)*2.5);
+      line.rotation.z=Math.PI/4*Math.cos(a); line.rotation.x=Math.PI/4*Math.sin(a);
+      scene.add(line);
+    }
+  }
+  // Campfire stones
+  const stoneM=new THREE.MeshStandardMaterial({map:TEX.cliff,roughness:0.95,color:0x887766});
+  for(let i=0;i<7;i++){
+    const a=i/7*Math.PI*2, r=0.5;
+    const s=new THREE.Mesh(new THREE.DodecahedronGeometry(0.15,0),stoneM);
+    s.position.set(x+3+Math.cos(a)*r, y+0.12, z+2+Math.sin(a)*r);
+    s.rotation.set(Math.random(),Math.random(),Math.random()); scene.add(s);
+  }
+  // Fire log
+  const logM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.9,color:0x6a3a1a});
+  const log=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.9,6),logM);
+  log.position.set(x+3,y+0.12,z+2); log.rotation.z=Math.PI/2.5; scene.add(log);
+  const log2=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.9,6),logM);
+  log2.position.set(x+3,y+0.12,z+2); log2.rotation.z=-Math.PI/2.5; log2.rotation.y=Math.PI/4; scene.add(log2);
+  // Fire glow
+  const fireLight=new THREE.PointLight(0xff6a00,2.5,10);
+  fireLight.position.set(x+3,y+0.9,z+2); scene.add(fireLight);
+  state.campfire={light:fireLight};
+  // Camp trigger
+  const cTrig=new THREE.Mesh(new THREE.BoxGeometry(2.5,2,2.5),new THREE.MeshBasicMaterial({visible:false}));
+  cTrig.position.set(x+3,y+1,z+2);
+  cTrig.userData={type:'campfire',prompt:'[ E ] Descansar en el campamento',id:'campfire'};
+  scene.add(cTrig); interactables.push(cTrig);
+  // Sample table
+  const tableMat=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.85,color:0x7a5c3a});
+  const table=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.08,0.8),tableMat);
+  table.position.set(x-3,y+0.76,z-2); scene.add(table);
+  // Legs
+  [[-0.7,-0.35],[0.7,-0.35],[-0.7,0.35],[0.7,0.35]].forEach(([lx,lz])=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.76,6),tableMat);
+    leg.position.set(x-3+lx,y+0.38,z-2+lz); scene.add(leg);
+  });
+  // Microscope on table
+  const scope=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.3,8),new THREE.MeshStandardMaterial({color:0x222222,metalness:0.8,roughness:0.3}));
+  scope.position.set(x-3,y+0.95,z-2); scene.add(scope);
+  const tableTrig=new THREE.Mesh(new THREE.BoxGeometry(2.5,1.5,1.5),new THREE.MeshBasicMaterial({visible:false}));
+  tableTrig.position.set(x-3,y+0.8,z-2);
+  tableTrig.userData={type:'table',prompt:'[ E ] Analizar muestras en mesa de trabajo',id:'table'};
+  scene.add(tableTrig); interactables.push(tableTrig);
+}
+
+function addVehicle(x,y,z){
+  const bodyM=new THREE.MeshStandardMaterial({color:0x2d5a1a,roughness:0.6,metalness:0.3});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(4.5,1.3,2.2),bodyM);
+  body.position.set(x,y+1,z); body.castShadow=true; scene.add(body);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.1,2),bodyM);
+  cab.position.set(x+0.7,y+1.95,z); scene.add(cab);
+  const glass=new THREE.MeshStandardMaterial({color:0x88aacc,roughness:0.05,metalness:0.1,transparent:true,opacity:0.7});
+  const windshield=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.8,1.7),glass);
+  windshield.position.set(x+1.8,y+2.0,z); scene.add(windshield);
+  const wheelM=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.9,metalness:0});
+  const rimM=new THREE.MeshStandardMaterial({color:0x888888,roughness:0.4,metalness:0.8});
+  [[-1.5,-1.15],[-1.5,1.15],[1.5,-1.15],[1.5,1.15]].forEach(([wx,wz])=>{
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.25,12),wheelM);
+    w.rotation.z=Math.PI/2; w.position.set(x+wx,y+0.42,z+wz); scene.add(w);
+    const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.27,8),rimM);
+    rim.rotation.z=Math.PI/2; rim.position.set(x+wx,y+0.42,z+wz); scene.add(rim);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// MOUSE / CONTROLS (pointer lock fixed)
+// ══════════════════════════════════════════════════════
+const keys={};
+let pitch=0, yaw=0;
+let vy=0, onGround=false;
+const SPEED=6.5, GRAV=-22;
+
+// Pointer lock robust setup
+let mouseLocked=false;
+
+function requestLock(){
+  if(!state.dialogOpen && !state.paused && state.job){
+    canvas.requestPointerLock();
+  }
+}
+
+canvas.addEventListener('click', requestLock);
+
+document.addEventListener('pointerlockchange', ()=>{
+  mouseLocked = (document.pointerLockElement === canvas);
+  document.getElementById('lock-prompt').style.display =
+    (state.job && !mouseLocked && !state.dialogOpen) ? 'block' : 'none';
+});
+
+document.addEventListener('mousemove', e=>{
+  if(!mouseLocked) return;
+  yaw   -= e.movementX * 0.0022;
+  pitch -= e.movementY * 0.0022;
+  pitch  = Math.max(-1.3, Math.min(1.3, pitch));
+});
+
+document.addEventListener('keydown', e=>{
+  keys[e.code]=true;
+  if(e.code==='Escape'){
+    if(state.dialogOpen){closeDialog();}
+    else if(mouseLocked){document.exitPointerLock();}
+  }
+  const n=parseInt(e.key);
+  if(n>=1&&n<=6) selectSlot(n-1);
+  if(e.code==='KeyE' && state.nearObject && !state.dialogOpen) interact(state.nearObject.userData);
+  if(e.code==='KeyF') useItem();
+});
+document.addEventListener('keyup', e=>{keys[e.code]=false;});
+
+function selectSlot(n){
+  state.selectedSlot=n;
+  document.querySelectorAll('.inv-slot').forEach((s,i)=>s.classList.toggle('active',i===n));
+}
+
+// ══════════════════════════════════════════════════════
+// RAYCASTING
+// ══════════════════════════════════════════════════════
+const raycaster=new THREE.Raycaster();
+const REACH=6;
+function checkInteractables(){
+  raycaster.setFromCamera(new THREE.Vector2(0,0),camera);
+  const hits=raycaster.intersectObjects(interactables);
+  const prompt=document.getElementById('interact-prompt');
+  if(hits.length && hits[0].distance<REACH){
+    state.nearObject=hits[0].object;
+    prompt.textContent=state.nearObject.userData.prompt||'[ E ] Interactuar';
+    prompt.style.display='block';
+  } else {
+    state.nearObject=null;
+    prompt.style.display='none';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// INTERACTIONS / DIALOGS
+// ══════════════════════════════════════════════════════
+function interact(data){
+  if(!data) return;
+  switch(data.type){
+    case 'rock':
+      if(state.inventory[2].count>0){
+        state.inventory[2].count--;
+        state.samplesCollected++;
+        state.money+=500;
+        showNotif('🪨 Muestra recolectada (+$500)');
+        updateInventoryUI(); updateTasks(); updateMoney();
+        state.energy=Math.max(0,state.energy-5);
+      } else showNotif('¡Sin kits de muestra! Analizá en la mesa.');
+      break;
+    case 'mineshaft':
+      openDialog('Socavón Principal',
+        'El socavón baja ~40 m siguiendo una veta de calcopirita. Temperatura: 18°C. Humedad: 82%. ¿Qué hacés?',
+        [{label:'Explorar interior',fn:()=>{state.money+=1500;showNotif('⛏️ Socavón explorado (+$1500)');state.logsRecorded++;updateTasks();updateMoney();closeDialog();}},
+         {label:'Cartografiar galería',fn:()=>{state.money+=800;showNotif('📋 Galería cartografiada (+$800)');closeDialog();}},
+         {label:'Salir',fn:closeDialog}]);
+      break;
+    case 'oilrig':
+      openDialog('Pozo VP-27 — Vaca Muerta',
+        'Perforando a 3.820 m en Fm. Vaca Muerta (Jurásico Sup.). ROP: 15 m/h | WOB: 22 klb | RPM: 120 | ECD: 1.62 g/cc.',
+        [{label:'Registrar MWD',fn:()=>{state.logsRecorded++;state.money+=2000;showNotif('📡 Log MWD registrado (+$2.000)');updateTasks();updateMoney();closeDialog();}},
+         {label:'Muestrear cutting',fn:()=>{state.samplesCollected++;state.money+=800;showNotif('🧪 Cutting recolectado (+$800)');updateTasks();updateMoney();closeDialog();}},
+         {label:'Columna litológica',fn:()=>openDialog('Litología del Pozo','Fm. Vaca Muerta: pelitas negras orgánicas y calizas micríticas (Titoniano). TOC: 4.8%. Madurez: Ro=1.1%. Potencial shale oil confirmado.',[{label:'Volver',fn:()=>interact(data)}])},
+         {label:'Cerrar',fn:closeDialog}]);
+      break;
+    case 'safety':
+      openDialog('Estación de Seguridad AH-23',
+        'Plan de contingencia vigente. EPP requerido en área de perforación: casco, gafas, botas con puntera, guantes de nitrilo. H₂S detectado: 12 ppm (umbral 10). ¿Revisás el plan?',
+        [{label:'Revisar plan de emergencia',fn:()=>{showNotif('✅ EDP revisado');closeDialog();}},
+         {label:'Cerrar',fn:closeDialog}]);
+      break;
+    case 'campfire':
+      openDialog('Campamento Base',
+        `Día ${state.day} — ${Math.round(state.hour)}:${String(Math.round(state.minute)).padStart(2,'0')} hs. Energía: ${Math.round(state.energy)}%. ¿Qué hacés?`,
+        [{label:'Dormir (avanzar día)',fn:()=>{advanceDay();closeDialog();}},
+         {label:'Tomar agua',fn:()=>{if(state.inventory[4].count>0){state.inventory[4].count--;state.energy=Math.min(100,state.energy+30);showNotif('🥤 +30 Energía');updateInventoryUI();}else showNotif('Sin agua!');closeDialog();}},
+         {label:'Cerrar',fn:closeDialog}]);
+      break;
+    case 'table':
+      openDialog('Mesa de Análisis',
+        `Muestras pendientes: ${state.samplesCollected}. Podés analizar las muestras para obtener datos y recuperar kits.`,
+        [{label:'Analizar todo',fn:()=>{
+          if(state.samplesCollected>0){
+            const m=state.samplesCollected*350; state.money+=m;
+            state.inventory[2].count=Math.min(5,state.inventory[2].count+state.samplesCollected);
+            showNotif(`🔬 Análisis completado +$${m.toLocaleString()}`); state.samplesCollected=0;
+            updateMoney(); updateInventoryUI();
+          } else showNotif('No hay muestras para analizar.');
+          closeDialog();
+        }},{label:'Cerrar',fn:closeDialog}]);
+      break;
+  }
+}
+
+function openDialog(name,text,actions){
+  state.dialogOpen=true;
+  if(mouseLocked) document.exitPointerLock();
+  document.getElementById('d-name').textContent=name;
+  document.getElementById('d-text').textContent=text;
+  const ac=document.getElementById('d-actions');
+  ac.innerHTML='';
+  actions.forEach(a=>{
+    const b=document.createElement('button');
+    b.className='d-btn'; b.textContent=a.label; b.onclick=a.fn; ac.appendChild(b);
+  });
+  document.getElementById('dialog').style.display='block';
+}
+function closeDialog(){
+  state.dialogOpen=false;
+  document.getElementById('dialog').style.display='none';
+  document.getElementById('lock-prompt').style.display='block';
+}
+window.closeDialog=closeDialog;
+
+// ══════════════════════════════════════════════════════
+// TASKS / HUD
+// ══════════════════════════════════════════════════════
+function initTasks(){
+  if(state.job==='minero'){
+    state.tasks=[
+      {text:'Recolectar 3 muestras de roca',done:()=>state.samplesCollected>=3},
+      {text:'Explorar el socavón',done:()=>state.logsRecorded>=1},
+      {text:'Analizar muestras en mesa',done:()=>state.money>=3000},
+      {text:'Descansar en campamento',done:()=>state.day>1},
+    ];
+  } else {
+    state.tasks=[
+      {text:'Registrar log MWD del pozo',done:()=>state.logsRecorded>=1},
+      {text:'Tomar 2 muestras de cutting',done:()=>state.samplesCollected>=2},
+      {text:'Revisar plan de seguridad',done:()=>false},
+      {text:'Analizar muestras en mesa',done:()=>state.money>=4000},
+    ];
+  }
+  updateTasks();
+}
+function updateTasks(){
+  const list=document.getElementById('task-list');
+  list.innerHTML='';
+  state.tasks.forEach(t=>{
+    const d=document.createElement('div');
+    d.className='task-item'+(t.done()?' done':'');
+    d.textContent=t.text; list.appendChild(d);
+  });
+}
+function updateHUD(){
+  document.getElementById('bar-energy').style.width=state.energy+'%';
+  document.getElementById('val-energy').textContent=Math.round(state.energy);
+  document.getElementById('bar-health').style.width=state.health+'%';
+  document.getElementById('val-health').textContent=Math.round(state.health);
+}
+function updateMoney(){ document.getElementById('money-val').textContent=state.money.toLocaleString('es-AR'); }
+function updateInventoryUI(){
+  state.inventory.forEach((item,i)=>{
+    document.getElementById('s'+i).textContent=item.icon;
+    document.getElementById('c'+i).textContent=item.count>1?item.count:'';
+  });
+}
+function showNotif(msg){
+  const n=document.getElementById('notification');
+  n.textContent=msg; n.classList.add('show');
+  setTimeout(()=>n.classList.remove('show'),2800);
+}
+function useItem(){
+  const item=state.inventory[state.selectedSlot];
+  if(item.type==='consumable'&&item.count>0){
+    item.count--;
+    if(item.name==='Agua'){state.energy=Math.min(100,state.energy+25);showNotif('💧 +25 Energía');}
+    if(item.name==='Pastillas'){state.health=Math.min(100,state.health+20);showNotif('💊 +20 Salud');}
+    updateInventoryUI(); updateHUD();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// TIME / DAY
+// ══════════════════════════════════════════════════════
+function advanceDay(){
+  state.day++; state.hour=8; state.minute=0;
+  state.energy=100; state.health=Math.min(100,state.health+10);
+  state.inventory[3].count=Math.min(5,state.inventory[3].count+1);
+  state.inventory[4].count=Math.min(3,state.inventory[4].count+1);
+  state.inventory[2].count=Math.min(5,state.inventory[2].count+1);
+  updateInventoryUI(); updateHUD();
+  showNotif(`☀️ Día ${state.day} — Buen descanso`);
+}
+function updateTime(dt){
+  state.minute+=dt*(60/300);
+  if(state.minute>=60){state.minute-=60;state.hour++;}
+  if(state.hour>=22){state.hour=22;state.minute=0;}
+  const h=String(Math.floor(state.hour)).padStart(2,'0');
+  const m=String(Math.floor(state.minute)).padStart(2,'0');
+  document.getElementById('time-label').textContent=h+':'+m;
+  document.getElementById('day-label').textContent='DÍA '+state.day;
+  state.energy=Math.max(0,state.energy-dt*0.5);
+  updateHUD();
+  // Sun arc
+  const t=Math.max(0,Math.min(1,(state.hour-6)/16));
+  sun.position.set(Math.cos(t*Math.PI)*250,Math.sin(t*Math.PI)*220,100);
+  const warmth=t<0.5?0.75+t*0.5:0.75+(1-t)*0.5;
+  sun.color.setRGB(1,warmth*0.88,warmth*0.68);
+  sun.intensity=0.5+Math.sin(t*Math.PI)*0.9;
+  ambient.intensity=0.3+Math.sin(t*Math.PI)*0.4;
+  // Sky colour
+  const skyDay=new THREE.Color(state.job==='minero'?0x6090b0:0xb0c8d8);
+  const skyDusk=new THREE.Color(0x6040a0);
+  const blendFactor=t<0.1||t>0.9?0.7:0;
+  const skyCol=skyDay.clone().lerp(skyDusk,blendFactor*(1-Math.sin(t*Math.PI)));
+  scene.background=skyCol;
+}
+
+// ══════════════════════════════════════════════════════
+// MINIMAP
+// ══════════════════════════════════════════════════════
+function drawMinimap(){
+  const mc=document.getElementById('mm-canvas');
+  const ctx=mc.getContext('2d');
+  ctx.clearRect(0,0,90,90);
+  ctx.fillStyle='rgba(20,30,20,0.85)'; ctx.fillRect(0,0,90,90);
+  const scale=0.13,cx=45,cy=45;
+  ctx.fillStyle='#f0c040'; ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#f0c040'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.sin(yaw)*10,cy-Math.cos(yaw)*10); ctx.stroke();
+  interactables.forEach(obj=>{
+    const dx=(obj.position.x-camera.position.x)*scale;
+    const dz=(obj.position.z-camera.position.z)*scale;
+    const mx=cx+dx,my=cy+dz;
+    if(mx>2&&mx<88&&my>2&&my<88){
+      ctx.fillStyle=obj===state.nearObject?'#ff8800':'#88aacc';
+      ctx.beginPath(); ctx.arc(mx,my,2.5,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// GAME LOOP
+// ══════════════════════════════════════════════════════
+let ground, lastTime=0;
+
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min((ts-lastTime)/1000,0.05);
+  lastTime=ts;
+
+  if(state.dialogOpen){renderer.render(scene,camera);return;}
+
+  // Camera
+  camera.rotation.order='YXZ';
+  camera.rotation.y=yaw;
+  camera.rotation.x=pitch;
+
+  // Movement
+  const moveDir=new THREE.Vector3();
+  if(keys['KeyW']||keys['ArrowUp'])    moveDir.z-=1;
+  if(keys['KeyS']||keys['ArrowDown'])  moveDir.z+=1;
+  if(keys['KeyA']||keys['ArrowLeft'])  moveDir.x-=1;
+  if(keys['KeyD']||keys['ArrowRight']) moveDir.x+=1;
+  if(moveDir.length()>0) moveDir.normalize().applyEuler(new THREE.Euler(0,yaw,0));
+  if((keys['Space']||keys['KeyJ'])&&onGround){vy=7;onGround=false;}
+
+  vy+=GRAV*dt;
+  camera.position.y+=vy*dt;
+  if(ground){
+    const ty=getTerrainY(camera.position.x,camera.position.z,ground)+1.75;
+    if(camera.position.y<ty){camera.position.y=ty;vy=0;onGround=true;}
+    else onGround=false;
+  }
+  camera.position.x+=moveDir.x*SPEED*dt;
+  camera.position.z+=moveDir.z*SPEED*dt;
+  camera.position.x=Math.max(-320,Math.min(320,camera.position.x));
+  camera.position.z=Math.max(-320,Math.min(320,camera.position.z));
+
+  checkInteractables();
+  updateTime(dt);
+  drawMinimap();
+
+  // Campfire flicker
+  if(state.campfire) state.campfire.light.intensity=2+Math.sin(ts*0.012)*0.6+Math.sin(ts*0.031)*0.4;
+  // Flare stack
+  if(state.flareLight) state.flareLight.intensity=1.5+Math.sin(ts*0.04)*0.8+Math.random()*0.3;
+
+  // Biome text
+  const blabel=document.getElementById('biome-label');
+  if(state.job==='minero'){
+    const h=camera.position.y;
+    blabel.textContent=h>35?'ZONA DE CUMBRES NEVADAS':h>15?'LADERA ANDINA':'BASE DE MONTAÑA';
+  } else {
+    const dist=Math.sqrt(camera.position.x**2+camera.position.z**2);
+    blabel.textContent=dist<45?'ÁREA DE PERFORACIÓN':dist<130?'ESTEPA PATAGÓNICA':'CUENCA NEUQUINA';
+  }
+
+  renderer.render(scene,camera);
+}
+
+// ══════════════════════════════════════════════════════
+// START
+// ══════════════════════════════════════════════════════
+window.startGame=function(job){
+  state.job=job;
+  document.getElementById('menu-overlay').style.display='none';
+  document.getElementById('hud').style.display='block';
+
+  initTextures();
+
+  if(job==='minero'){
+    ground=buildMiningTerrain();
+    camera.position.set(0,8,-12);
+    document.getElementById('job-title').textContent='GEÓLOGO DE MINA';
+    document.getElementById('job-subtitle').textContent='Proyecto Andino – Unidad Minera Cordillera Norte';
+    state.inventory[0].name='Piolet geológico';
+    state.inventory[0].icon='⛏️';
+    document.getElementById('s0').textContent='⛏️';
+  } else {
+    ground=buildOilTerrain();
+    camera.position.set(0,3,-28);
+    document.getElementById('job-title').textContent='GEÓLOGO DE POZO';
+    document.getElementById('job-subtitle').textContent='VP-27 – Fm. Vaca Muerta – Neuquén';
+  }
+  initTasks(); updateMoney(); updateInventoryUI(); updateHUD();
+  // Show lock prompt
+  document.getElementById('lock-prompt').style.display='block';
+  requestAnimationFrame(loop);
+};
+
+// Resize
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>
+HTMLEOF
+echo "Done: $(wc -l < /home/claude/geologo-simulator.html) lines"
