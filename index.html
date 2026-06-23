@@ -6,67 +6,68 @@ cat > /home/claude/geologo-simulator.html << 'HTMLEOF'
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GeoSim — Simulador de Geólogo</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a0a; font-family: 'Courier New', monospace; overflow: hidden; color: #e8dcc8; }
-  #canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
-  #hud { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 10; }
-  #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 18px; height: 18px; }
-  #crosshair::before, #crosshair::after { content:''; position:absolute; background:rgba(255,255,255,0.85); }
-  #crosshair::before { width:2px; height:100%; left:50%; transform:translateX(-50%); }
-  #crosshair::after  { width:100%; height:2px; top:50%; transform:translateY(-50%); }
-  #stats { position:absolute; top:12px; left:12px; display:flex; flex-direction:column; gap:6px; }
-  .stat-row { display:flex; align-items:center; gap:8px; font-size:12px; }
-  .stat-label { color:#aaa; width:60px; text-transform:uppercase; letter-spacing:1px; font-size:10px; }
-  .bar-bg { width:120px; height:6px; background:rgba(255,255,255,0.1); border-radius:3px; }
-  .bar-fill { height:100%; border-radius:3px; transition:width 0.3s; }
-  .bar-energy { background:linear-gradient(90deg,#f0c040,#e88a00); }
-  .bar-health  { background:linear-gradient(90deg,#60d060,#20a020); }
-  .stat-val { font-size:11px; color:#ccc; }
-  #money { position:absolute; top:12px; right:12px; font-size:20px; font-weight:bold; color:#f0c040; text-shadow:0 0 20px rgba(240,192,64,0.5); }
-  #money span { font-size:12px; color:#aaa; }
-  #job-info { position:absolute; top:12px; left:50%; transform:translateX(-50%); text-align:center; font-size:11px; color:#bbb; }
-  #job-title { font-size:14px; color:#f0c040; font-weight:bold; letter-spacing:2px; }
-  #time-display { position:absolute; bottom:80px; right:12px; font-size:12px; color:#aaa; text-align:right; }
-  #inventory { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:6px; pointer-events:auto; }
-  .inv-slot { width:52px; height:52px; background:rgba(20,20,20,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:4px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color 0.2s; font-size:22px; position:relative; }
-  .inv-slot:hover { border-color:rgba(240,192,64,0.6); }
-  .inv-slot.active { border-color:#f0c040; box-shadow:0 0 10px rgba(240,192,64,0.4); }
-  .inv-slot .slot-count { position:absolute; bottom:2px; right:4px; font-size:10px; color:#f0c040; }
-  .inv-slot .slot-key { position:absolute; top:2px; left:4px; font-size:9px; color:#666; }
-  #interact-prompt { position:absolute; bottom:100px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.7); border:1px solid rgba(240,192,64,0.4); padding:8px 18px; border-radius:4px; font-size:13px; color:#f0c040; display:none; text-align:center; }
-  #tasks { position:absolute; bottom:80px; left:12px; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:10px 14px; min-width:200px; }
-  #tasks h3 { font-size:10px; color:#888; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
-  .task-item { font-size:12px; color:#ccc; margin:3px 0; display:flex; gap:6px; }
-  .task-item.done { color:#60d060; }
-  .task-item.done::before { content:'✓'; }
-  .task-item:not(.done)::before { content:'○'; color:#666; }
-  #minimap { position:absolute; top:12px; right:160px; width:90px; height:90px; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; }
-  #minimap canvas { width:100%; height:100%; }
-  #notification { position:absolute; top:50%; left:50%; transform:translate(-50%,-200%); background:rgba(0,0,0,0.85); border:1px solid #f0c040; padding:10px 24px; border-radius:4px; font-size:13px; color:#f0c040; transition:transform 0.4s,opacity 0.4s; opacity:0; pointer-events:none; text-align:center; }
-  #notification.show { transform:translate(-50%,-50%); opacity:1; }
-  #menu-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.92); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
-  #menu-overlay h1 { font-size:42px; font-weight:bold; color:#f0c040; text-shadow:0 0 40px rgba(240,192,64,0.5); letter-spacing:6px; text-transform:uppercase; margin-bottom:10px; }
-  #menu-overlay h2 { font-size:14px; color:#888; letter-spacing:3px; margin-bottom:30px; }
-  #job-select { display:flex; gap:20px; margin-top:10px; }
-  .job-card { background:rgba(20,20,20,0.9); border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:20px 24px; width:200px; cursor:pointer; transition:all 0.2s; text-align:center; }
-  .job-card:hover { border-color:#f0c040; background:rgba(240,192,64,0.08); }
-  .job-card .job-icon { font-size:40px; margin-bottom:10px; }
-  .job-card .job-name { font-size:15px; color:#f0c040; font-weight:bold; letter-spacing:2px; margin-bottom:6px; }
-  .job-card .job-desc { font-size:11px; color:#888; line-height:1.5; }
-  #dialog { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:rgba(10,10,10,0.95); border:1px solid rgba(240,192,64,0.3); border-radius:6px; padding:16px 24px; max-width:500px; z-index:50; display:none; }
-  #dialog .dialog-name { font-size:11px; color:#f0c040; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
-  #dialog .dialog-text { font-size:13px; color:#ddd; line-height:1.6; }
-  #dialog .dialog-actions { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
-  #dialog .d-btn { background:rgba(240,192,64,0.1); border:1px solid rgba(240,192,64,0.3); color:#f0c040; padding:6px 14px; font-family:'Courier New',monospace; font-size:11px; cursor:pointer; border-radius:3px; letter-spacing:1px; pointer-events:auto; }
-  #dialog .d-btn:hover { background:rgba(240,192,64,0.25); }
-  #biome-label { position:absolute; top:60px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,0.4); letter-spacing:3px; text-transform:uppercase; }
-  #lock-prompt { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.8); border:1px solid rgba(240,192,64,0.5); color:#f0c040; padding:16px 32px; border-radius:6px; font-size:14px; text-align:center; z-index:200; display:none; letter-spacing:1px; }
-  #controls-bar { position:fixed; bottom:0; left:0; right:0; text-align:center; font-size:11px; color:#555; padding:6px; letter-spacing:1px; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a0a; font-family:'Courier New',monospace; overflow:hidden; color:#e8dcc8; }
+#canvas { display:block; width:100vw; height:100vh; cursor:crosshair; }
+#hud { position:fixed; top:0; left:0; right:0; bottom:0; pointer-events:none; z-index:10; }
+#crosshair { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:16px; height:16px; }
+#crosshair::before,#crosshair::after { content:''; position:absolute; background:rgba(255,255,255,0.8); }
+#crosshair::before { width:1px; height:100%; left:50%; transform:translateX(-50%); }
+#crosshair::after  { width:100%; height:1px; top:50%; transform:translateY(-50%); }
+#stats { position:absolute; top:14px; left:14px; display:flex; flex-direction:column; gap:7px; }
+.stat-row { display:flex; align-items:center; gap:8px; }
+.stat-label { color:#999; width:58px; text-transform:uppercase; letter-spacing:1px; font-size:9px; }
+.bar-bg { width:110px; height:5px; background:rgba(255,255,255,0.08); border-radius:3px; }
+.bar-fill { height:100%; border-radius:3px; transition:width 0.4s; }
+.bar-energy { background:linear-gradient(90deg,#d4a017,#f0c040); }
+.bar-health  { background:linear-gradient(90deg,#3a9a3a,#60d060); }
+.stat-val { font-size:10px; color:#bbb; min-width:24px; }
+#money { position:absolute; top:14px; right:14px; font-size:18px; font-weight:bold; color:#f0c040; text-shadow:0 0 16px rgba(240,192,64,0.4); }
+#money span { font-size:11px; color:#888; }
+#job-info { position:absolute; top:14px; left:50%; transform:translateX(-50%); text-align:center; }
+#job-title { font-size:13px; color:#f0c040; font-weight:bold; letter-spacing:2px; }
+#job-subtitle { font-size:10px; color:#888; margin-top:2px; }
+#biome-label { position:absolute; top:56px; left:50%; transform:translateX(-50%); font-size:11px; color:rgba(255,255,255,0.35); letter-spacing:3px; text-transform:uppercase; }
+#time-display { position:absolute; bottom:84px; right:14px; font-size:11px; color:#888; text-align:right; line-height:1.6; }
+#tasks { position:absolute; bottom:84px; left:14px; background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.08); border-radius:5px; padding:10px 14px; min-width:190px; backdrop-filter:blur(4px); }
+#tasks h3 { font-size:9px; color:#777; text-transform:uppercase; letter-spacing:2px; margin-bottom:7px; }
+.task-item { font-size:11px; color:#bbb; margin:4px 0; display:flex; gap:6px; align-items:flex-start; }
+.task-item.done { color:#5cc05c; }
+.task-item.done::before { content:'✓'; flex-shrink:0; }
+.task-item:not(.done)::before { content:'○'; color:#555; flex-shrink:0; }
+#minimap { position:absolute; top:14px; right:150px; width:88px; height:88px; background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.1); border-radius:5px; overflow:hidden; }
+#minimap canvas { width:100%; height:100%; }
+#notification { position:absolute; top:50%; left:50%; transform:translate(-50%,-300%); background:rgba(8,8,8,0.9); border:1px solid rgba(240,192,64,0.5); padding:9px 22px; border-radius:5px; font-size:13px; color:#f0c040; transition:transform 0.35s cubic-bezier(.22,1,.36,1),opacity 0.35s; opacity:0; pointer-events:none; text-align:center; white-space:nowrap; }
+#notification.show { transform:translate(-50%,-50%); opacity:1; }
+#inventory { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); display:flex; gap:5px; pointer-events:auto; }
+.inv-slot { width:50px; height:50px; background:rgba(14,14,14,0.88); border:1px solid rgba(255,255,255,0.12); border-radius:5px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color 0.15s,box-shadow 0.15s; font-size:20px; position:relative; }
+.inv-slot:hover { border-color:rgba(240,192,64,0.5); }
+.inv-slot.active { border-color:#f0c040; box-shadow:0 0 12px rgba(240,192,64,0.35); }
+.slot-count { position:absolute; bottom:2px; right:4px; font-size:9px; color:#f0c040; }
+.slot-key   { position:absolute; top:2px; left:4px; font-size:8px; color:#555; }
+#interact-prompt { position:absolute; bottom:104px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.72); border:1px solid rgba(240,192,64,0.35); padding:7px 16px; border-radius:4px; font-size:12px; color:#f0c040; display:none; text-align:center; backdrop-filter:blur(4px); }
+#dialog { position:fixed; bottom:84px; left:50%; transform:translateX(-50%); background:rgba(8,8,8,0.96); border:1px solid rgba(240,192,64,0.25); border-radius:6px; padding:18px 26px; max-width:520px; width:90vw; z-index:50; display:none; backdrop-filter:blur(8px); }
+.dialog-name { font-size:10px; color:#f0c040; text-transform:uppercase; letter-spacing:2px; margin-bottom:8px; }
+.dialog-text { font-size:12px; color:#ccc; line-height:1.7; }
+.dialog-actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+.d-btn { background:rgba(240,192,64,0.08); border:1px solid rgba(240,192,64,0.28); color:#f0c040; padding:6px 13px; font-family:'Courier New',monospace; font-size:11px; cursor:pointer; border-radius:3px; letter-spacing:1px; pointer-events:auto; transition:background 0.15s; }
+.d-btn:hover { background:rgba(240,192,64,0.22); }
+#menu-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.94); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+#menu-overlay h1 { font-size:44px; font-weight:bold; color:#f0c040; text-shadow:0 0 50px rgba(240,192,64,0.45); letter-spacing:8px; text-transform:uppercase; }
+#menu-overlay h2 { font-size:13px; color:#666; letter-spacing:3px; }
+#job-select { display:flex; gap:18px; margin-top:10px; }
+.job-card { background:rgba(18,18,18,0.9); border:1px solid rgba(255,255,255,0.12); border-radius:7px; padding:22px 26px; width:210px; cursor:pointer; transition:all 0.2s; text-align:center; }
+.job-card:hover { border-color:#f0c040; background:rgba(240,192,64,0.06); transform:translateY(-2px); }
+.job-icon { font-size:42px; margin-bottom:10px; }
+.job-name { font-size:14px; color:#f0c040; font-weight:bold; letter-spacing:2px; margin-bottom:8px; }
+.job-desc { font-size:10px; color:#777; line-height:1.6; }
+#lock-prompt { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.85); border:1px solid rgba(240,192,64,0.45); color:#f0c040; padding:18px 36px; border-radius:7px; font-size:13px; text-align:center; z-index:200; display:none; letter-spacing:1px; }
+#controls-bar { position:fixed; bottom:0; left:0; right:0; text-align:center; font-size:10px; color:#444; padding:5px; letter-spacing:1px; }
+#tool-label { position:absolute; bottom:72px; right:14px; font-size:10px; color:#888; letter-spacing:1px; text-align:right; }
 </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
-
 <div id="menu-overlay">
   <h1>GeoSim</h1>
   <h2>Simulador de Geólogo de Campo</h2>
@@ -74,17 +75,16 @@ cat > /home/claude/geologo-simulator.html << 'HTMLEOF'
     <div class="job-card" onclick="startGame('minero')">
       <div class="job-icon">⛏️</div>
       <div class="job-name">Minero</div>
-      <div class="job-desc">Trabajo en las montañas andinas. Explorá vetas, tomá muestras y analizá mineralización.</div>
+      <div class="job-desc">Montañas andinas. Explorá vetas, tomá muestras de roca y analizá mineralización.</div>
     </div>
     <div class="job-card" onclick="startGame('petroleo')">
       <div class="job-icon">🛢️</div>
       <div class="job-name">Petrolero</div>
-      <div class="job-desc">Pozo en Vaca Muerta. Registrá perfiles sísmicos, logs y producción en la estepa neuquina.</div>
+      <div class="job-desc">Pozo VP-27 en Vaca Muerta. Registrá logs MWD, muestreá cutting y revisá seguridad.</div>
     </div>
   </div>
-  <div style="font-size:11px;color:#555;margin-top:16px;letter-spacing:1px;">Hacé clic en el mapa para capturar el mouse y mirar con él</div>
+  <div style="font-size:10px;color:#444;margin-top:10px;letter-spacing:1px;">Clic en el canvas para capturar mouse · ESC para soltar</div>
 </div>
-
 <div id="hud" style="display:none">
   <div id="crosshair"></div>
   <div id="stats">
@@ -92,11 +92,11 @@ cat > /home/claude/geologo-simulator.html << 'HTMLEOF'
     <div class="stat-row"><span class="stat-label">Salud</span><div class="bar-bg"><div class="bar-fill bar-health" id="bar-health" style="width:100%"></div></div><span class="stat-val" id="val-health">100</span></div>
   </div>
   <div id="money">$<span id="money-val">0</span> <span>ARS</span></div>
-  <div id="job-info"><div id="job-title">—</div><div id="job-subtitle" style="font-size:11px;color:#888;margin-top:2px;">—</div></div>
+  <div id="job-info"><div id="job-title">—</div><div id="job-subtitle">—</div></div>
   <div id="biome-label">—</div>
   <div id="time-display"><div id="day-label">DÍA 1</div><div id="time-label">08:00</div></div>
   <div id="tasks"><h3>Tareas del día</h3><div id="task-list"></div></div>
-  <div id="minimap"><canvas id="mm-canvas" width="90" height="90"></canvas></div>
+  <div id="minimap"><canvas id="mm-canvas" width="88" height="88"></canvas></div>
   <div id="inventory">
     <div class="inv-slot active" data-slot="0"><span class="slot-key">1</span><span id="s0">🔨</span><span class="slot-count" id="c0"></span></div>
     <div class="inv-slot" data-slot="1"><span class="slot-key">2</span><span id="s1">📋</span><span class="slot-count" id="c1"></span></div>
@@ -105,6 +105,7 @@ cat > /home/claude/geologo-simulator.html << 'HTMLEOF'
     <div class="inv-slot" data-slot="4"><span class="slot-key">5</span><span id="s4">🥤</span><span class="slot-count" id="c4">2</span></div>
     <div class="inv-slot" data-slot="5"><span class="slot-key">6</span><span id="s5"> </span><span class="slot-count" id="c5"></span></div>
   </div>
+  <div id="tool-label"></div>
   <div id="interact-prompt">[ E ] Interactuar</div>
   <div id="notification"></div>
   <div id="dialog">
@@ -113,663 +114,852 @@ cat > /home/claude/geologo-simulator.html << 'HTMLEOF'
     <div class="dialog-actions" id="d-actions"></div>
   </div>
 </div>
-
-<div id="lock-prompt">Hacé clic para capturar el mouse y mirar libremente<br><span style="font-size:11px;color:#888;">ESC para soltar</span></div>
+<div id="lock-prompt">Clic para capturar el mouse<br><span style="font-size:10px;color:#888;">ESC para soltar</span></div>
 <div id="controls-bar">WASD — moverse &nbsp;|&nbsp; MOUSE — mirar &nbsp;|&nbsp; E — interactuar &nbsp;|&nbsp; 1-6 — inventario &nbsp;|&nbsp; ESPACIO — saltar &nbsp;|&nbsp; F — usar ítem</div>
 
 <script type="importmap">{"imports":{"three":"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"}}</script>
 <script type="module">
 import * as THREE from 'three';
 
-// ══════════════════════════════════════════════════════
-// TEXTURE FACTORY — procedural canvas-based textures
-// ══════════════════════════════════════════════════════
-function makeTexture(w, h, drawFn) {
+// ══════════════════════════════════════════════════════════
+// TEXTURE FACTORY
+// ══════════════════════════════════════════════════════════
+function makeTex(w, h, fn) {
   const c = document.createElement('canvas'); c.width=w; c.height=h;
-  const ctx = c.getContext('2d');
-  drawFn(ctx, w, h);
+  const ctx = c.getContext('2d'); fn(ctx,w,h);
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
   return t;
 }
 
-// Rocky mountain ground
-function rockTexture() {
-  return makeTexture(512, 512, (ctx, w, h) => {
-    // Base stone grey
-    ctx.fillStyle = '#7a7060'; ctx.fillRect(0,0,w,h);
-    // Irregular rock tiles
-    for(let i=0;i<200;i++){
-      const x=Math.random()*w, y=Math.random()*h;
-      const s=8+Math.random()*30;
-      const l=40+Math.floor(Math.random()*30);
-      ctx.fillStyle=`hsl(30,${8+Math.random()*10}%,${l}%)`;
+// Perlin-ish noise helper for textures
+function tnoise(ctx,w,h,scale,alpha,col){
+  for(let i=0;i<2000;i++){
+    const x=Math.random()*w, y=Math.random()*h, r=scale*(0.4+Math.random()*0.8);
+    ctx.globalAlpha=alpha*(0.3+Math.random()*0.7);
+    ctx.fillStyle=col;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+function texRock() {
+  return makeTex(512,512,(ctx,w,h)=>{
+    // Base: warm dark grey
+    const g=ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,'#6e6458'); g.addColorStop(0.5,'#7a7068'); g.addColorStop(1,'#686050');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    // Grain blobs
+    tnoise(ctx,w,h,18,0.18,'#8a7e6e');
+    tnoise(ctx,w,h,8,0.12,'#5a5048');
+    // Angular facets
+    for(let i=0;i<120;i++){
+      const x=Math.random()*w, y=Math.random()*h, s=6+Math.random()*28;
+      const pts=5+Math.floor(Math.random()*4);
+      ctx.fillStyle=`hsl(28,${6+Math.random()*12}%,${32+Math.random()*22}%)`;
       ctx.beginPath();
-      ctx.moveTo(x+s*Math.random(),y);
-      ctx.lineTo(x+s,y+s*Math.random());
-      ctx.lineTo(x+s*Math.random(),y+s);
-      ctx.lineTo(x,y+s*Math.random());
+      for(let p=0;p<pts;p++){
+        const a=(p/pts)*Math.PI*2+Math.random()*0.7;
+        const r=s*(0.5+Math.random()*0.5);
+        p===0?ctx.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r):ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r);
+      }
       ctx.closePath(); ctx.fill();
     }
-    // Cracks
-    for(let i=0;i<40;i++){
-      ctx.strokeStyle=`rgba(30,20,10,${0.3+Math.random()*0.4})`;
-      ctx.lineWidth=0.5+Math.random()*1.5;
-      ctx.beginPath();
-      let cx=Math.random()*w, cy=Math.random()*h;
-      ctx.moveTo(cx,cy);
-      for(let j=0;j<6;j++){cx+=(-15+Math.random()*30);cy+=(-15+Math.random()*30);ctx.lineTo(cx,cy);}
-      ctx.stroke();
-    }
-    // Mineral specks (pyrite-like)
-    for(let i=0;i<80;i++){
-      ctx.fillStyle=`rgba(200,180,80,${0.4+Math.random()*0.5})`;
-      ctx.fillRect(Math.random()*w, Math.random()*h, 1+Math.random()*3, 1+Math.random()*3);
-    }
-  });
-}
-
-// Snow/rock blend for high altitude
-function snowRockTexture() {
-  return makeTexture(512,512,(ctx,w,h)=>{
-    ctx.fillStyle='#9a9898'; ctx.fillRect(0,0,w,h);
-    for(let i=0;i<300;i++){
-      const x=Math.random()*w,y=Math.random()*h,s=5+Math.random()*20;
-      const snow=Math.random()>0.5;
-      ctx.fillStyle=snow?`rgba(240,245,255,${0.6+Math.random()*0.4})`:`hsl(25,8%,${35+Math.random()*20}%)`;
-      ctx.beginPath(); ctx.ellipse(x,y,s,s*0.6,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
-    }
-    for(let i=0;i<20;i++){
-      ctx.strokeStyle='rgba(20,15,10,0.3)'; ctx.lineWidth=1;
-      ctx.beginPath(); let cx=Math.random()*w,cy=Math.random()*h; ctx.moveTo(cx,cy);
-      for(let j=0;j<8;j++){cx+=(-20+Math.random()*40);cy+=(-20+Math.random()*40);ctx.lineTo(cx,cy);}
-      ctx.stroke();
-    }
-  });
-}
-
-// Steppe / Vaca Muerta dry ground
-function steppeTexture() {
-  return makeTexture(512,512,(ctx,w,h)=>{
-    // Sandy base
-    ctx.fillStyle='#c8b88a'; ctx.fillRect(0,0,w,h);
-    // Subtle sandy variation
-    for(let i=0;i<500;i++){
-      const x=Math.random()*w,y=Math.random()*h,r=2+Math.random()*8;
-      ctx.fillStyle=`hsl(38,${25+Math.random()*20}%,${55+Math.random()*20}%)`;
-      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.5,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
-    }
-    // Dry cracks
-    for(let i=0;i<60;i++){
-      ctx.strokeStyle=`rgba(100,70,30,${0.15+Math.random()*0.25})`;
-      ctx.lineWidth=0.5+Math.random()*1;
-      ctx.beginPath(); let cx=Math.random()*w,cy=Math.random()*h; ctx.moveTo(cx,cy);
-      for(let j=0;j<5;j++){cx+=(-20+Math.random()*40);cy+=(-20+Math.random()*40);ctx.lineTo(cx,cy);}
-      ctx.stroke();
-    }
-    // Sparse dry grass patches
-    for(let i=0;i<120;i++){
-      const x=Math.random()*w,y=Math.random()*h;
-      ctx.fillStyle=`rgba(140,120,60,${0.4+Math.random()*0.4})`;
-      ctx.fillRect(x,y,1,4+Math.random()*6);
-      ctx.fillRect(x+2,y+2,1,3+Math.random()*4);
-    }
-  });
-}
-
-// Shale / sedimentary layered rock
-function shaleTexture() {
-  return makeTexture(512,512,(ctx,w,h)=>{
-    ctx.fillStyle='#6a6055'; ctx.fillRect(0,0,w,h);
-    // Horizontal bedding planes
-    for(let y=0;y<h;y+=3+Math.floor(Math.random()*8)){
-      const col=`hsl(25,${10+Math.random()*15}%,${25+Math.random()*25}%)`;
-      ctx.fillStyle=col;
-      ctx.fillRect(0,y,w,1+Math.random()*2);
-    }
     // Fractures
-    for(let i=0;i<15;i++){
-      ctx.strokeStyle='rgba(20,15,10,0.5)'; ctx.lineWidth=0.8;
-      ctx.beginPath(); let cx=Math.random()*w; ctx.moveTo(cx,0);
-      for(let j=0;j<h/20;j++){cx+=(-8+Math.random()*16); ctx.lineTo(cx,j*20);}
+    ctx.lineCap='round';
+    for(let i=0;i<50;i++){
+      ctx.strokeStyle=`rgba(25,18,10,${0.25+Math.random()*0.35})`; ctx.lineWidth=0.4+Math.random()*1.2;
+      let cx=Math.random()*w, cy=Math.random()*h; ctx.beginPath(); ctx.moveTo(cx,cy);
+      for(let j=0;j<8;j++){cx+=(-18+Math.random()*36);cy+=(-18+Math.random()*36); ctx.lineTo(cx,cy);}
       ctx.stroke();
     }
-    // Oil seep dark spots
+    // Pyrite / mineral specks
+    for(let i=0;i<100;i++){
+      const x=Math.random()*w,y=Math.random()*h,s=1+Math.random()*3;
+      ctx.fillStyle=`rgba(${180+Math.random()*70},${155+Math.random()*50},${25+Math.random()*35},${0.5+Math.random()*0.5})`;
+      ctx.fillRect(x,y,s,s);
+    }
+  });
+}
+
+function texSnow() {
+  return makeTex(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#dce4ee'; ctx.fillRect(0,0,w,h);
+    tnoise(ctx,w,h,20,0.25,'#eef2f8');
+    tnoise(ctx,w,h,10,0.15,'#c8d0dc');
+    // Ice cracks
+    for(let i=0;i<25;i++){
+      ctx.strokeStyle=`rgba(160,170,190,${0.3+Math.random()*0.3})`; ctx.lineWidth=0.5;
+      let cx=Math.random()*w, cy=Math.random()*h; ctx.beginPath(); ctx.moveTo(cx,cy);
+      for(let j=0;j<6;j++){cx+=(-25+Math.random()*50);cy+=(-25+Math.random()*50); ctx.lineTo(cx,cy);}
+      ctx.stroke();
+    }
+    // Exposed rock patches in snow
     for(let i=0;i<30;i++){
-      const x=Math.random()*w,y=Math.random()*h,r=3+Math.random()*8;
-      ctx.fillStyle=`rgba(10,8,5,${0.3+Math.random()*0.4})`;
-      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.6,0,0,Math.PI*2); ctx.fill();
+      const x=Math.random()*w,y=Math.random()*h,r=8+Math.random()*20;
+      ctx.fillStyle=`rgba(90,80,70,${0.2+Math.random()*0.3})`;
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.6,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
     }
   });
 }
 
-// Rock face / cliff texture
-function cliffTexture() {
-  return makeTexture(256,512,(ctx,w,h)=>{
-    ctx.fillStyle='#5a5248'; ctx.fillRect(0,0,w,h);
-    for(let y=0;y<h;y+=4+Math.floor(Math.random()*12)){
-      ctx.fillStyle=`hsl(28,${12+Math.random()*10}%,${22+Math.random()*22}%)`;
-      ctx.fillRect(0,y,w,2+Math.random()*4);
-    }
-    for(let i=0;i<60;i++){
-      const x=Math.random()*w,y=Math.random()*h,s=4+Math.random()*20;
-      ctx.fillStyle=`rgba(255,230,180,${0.05+Math.random()*0.1})`;
-      ctx.fillRect(x,y,s,2);
-    }
-  });
-}
-
-// Wood beam texture
-function woodTexture() {
-  return makeTexture(256,256,(ctx,w,h)=>{
-    ctx.fillStyle='#7a5c38'; ctx.fillRect(0,0,w,h);
-    for(let i=0;i<40;i++){
-      ctx.strokeStyle=`hsl(28,${30+Math.random()*20}%,${20+Math.random()*25}%)`;
-      ctx.lineWidth=1+Math.random()*2;
-      ctx.beginPath(); ctx.moveTo(0,Math.random()*h); ctx.lineTo(w,Math.random()*h); ctx.stroke();
+function texGrass() {
+  return makeTex(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#3d4a2a'; ctx.fillRect(0,0,w,h);
+    tnoise(ctx,w,h,14,0.2,'#4a5a30');
+    tnoise(ctx,w,h,6,0.15,'#2e3a1e');
+    // Grass blades
+    for(let i=0;i<600;i++){
+      const x=Math.random()*w, y=Math.random()*h;
+      ctx.strokeStyle=`hsl(${95+Math.random()*25},${40+Math.random()*25}%,${22+Math.random()*20}%)`;
+      ctx.lineWidth=0.8+Math.random();
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+(-3+Math.random()*6),y-(4+Math.random()*8)); ctx.stroke();
     }
   });
 }
 
-// Steel / metal texture
-function steelTexture() {
-  return makeTexture(256,256,(ctx,w,h)=>{
-    const g=ctx.createLinearGradient(0,0,w,0);
-    g.addColorStop(0,'#8a8a8a'); g.addColorStop(0.4,'#cccccc'); g.addColorStop(0.6,'#aaaaaa'); g.addColorStop(1,'#888888');
+function texSteppe() {
+  return makeTex(512,512,(ctx,w,h)=>{
+    // Dry ochre base
+    const g=ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,'#c4b082'); g.addColorStop(0.5,'#d0bc8e'); g.addColorStop(1,'#b8a476');
     ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
-    // Brushed lines
+    tnoise(ctx,w,h,20,0.12,'#d8c898');
+    tnoise(ctx,w,h,8,0.1,'#a89060');
+    // Desiccation cracks
     for(let i=0;i<80;i++){
-      ctx.strokeStyle=`rgba(255,255,255,${0.03+Math.random()*0.06})`;
-      ctx.lineWidth=0.5;
-      const y=Math.random()*h;
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y+(-2+Math.random()*4)); ctx.stroke();
+      ctx.strokeStyle=`rgba(90,65,28,${0.12+Math.random()*0.2})`; ctx.lineWidth=0.5+Math.random()*1;
+      let cx=Math.random()*w, cy=Math.random()*h; ctx.beginPath(); ctx.moveTo(cx,cy);
+      for(let j=0;j<6;j++){cx+=(-22+Math.random()*44);cy+=(-22+Math.random()*44); ctx.lineTo(cx,cy);}
+      ctx.stroke();
     }
-    // Rust spots
-    for(let i=0;i<20;i++){
-      ctx.fillStyle=`rgba(150,70,20,${0.2+Math.random()*0.3})`;
+    // Dry grass tufts
+    for(let i=0;i<180;i++){
+      const x=Math.random()*w, y=Math.random()*h;
+      ctx.strokeStyle=`hsl(${40+Math.random()*15},${35+Math.random()*20}%,${38+Math.random()*18}%)`;
+      ctx.lineWidth=0.7;
+      for(let b=0;b<3;b++){
+        ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+(-4+Math.random()*8),y-(5+Math.random()*9)); ctx.stroke();
+      }
+    }
+    // Pebbles
+    for(let i=0;i<80;i++){
       const x=Math.random()*w,y=Math.random()*h,r=2+Math.random()*6;
+      ctx.fillStyle=`hsl(${30+Math.random()*20},${10+Math.random()*15}%,${45+Math.random()*20}%)`;
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.65,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+function texShale() {
+  return makeTex(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#58524a'; ctx.fillRect(0,0,w,h);
+    // Horizontal bedding — variable thickness
+    let y=0;
+    while(y<h){
+      const thick=1.5+Math.random()*5;
+      const dark=Math.random()>0.4;
+      ctx.fillStyle=dark?`hsl(22,${8+Math.random()*10}%,${18+Math.random()*14}%)`:`hsl(28,${6+Math.random()*8}%,${28+Math.random()*14}%)`;
+      ctx.fillRect(0,y,w,thick);
+      y+=thick+(0.5+Math.random()*2);
+    }
+    // Oil-dark spots (organic rich)
+    for(let i=0;i<40;i++){
+      const x=Math.random()*w,cy=Math.random()*h,r=3+Math.random()*9;
+      ctx.fillStyle=`rgba(8,5,2,${0.35+Math.random()*0.4})`;
+      ctx.beginPath(); ctx.ellipse(x,cy,r,r*0.55,0,0,Math.PI*2); ctx.fill();
+    }
+    // Fractures (vertical, slightly wavy)
+    for(let i=0;i<18;i++){
+      let cx=Math.random()*w; ctx.strokeStyle='rgba(15,10,5,0.55)'; ctx.lineWidth=0.7;
+      ctx.beginPath(); ctx.moveTo(cx,0);
+      for(let j=0;j<h/18;j++){cx+=(-6+Math.random()*12); ctx.lineTo(cx,j*18);}
+      ctx.stroke();
+    }
+  });
+}
+
+function texConcrete() {
+  return makeTex(256,256,(ctx,w,h)=>{
+    ctx.fillStyle='#8a8880'; ctx.fillRect(0,0,w,h);
+    tnoise(ctx,w,h,12,0.12,'#969490');
+    tnoise(ctx,w,h,5,0.1,'#787672');
+    for(let i=0;i<20;i++){
+      ctx.strokeStyle=`rgba(50,45,40,${0.15+Math.random()*0.2})`; ctx.lineWidth=0.5;
+      let cx=Math.random()*w,cy=Math.random()*h; ctx.beginPath(); ctx.moveTo(cx,cy);
+      for(let j=0;j<4;j++){cx+=(-12+Math.random()*24);cy+=(-12+Math.random()*24); ctx.lineTo(cx,cy);}
+      ctx.stroke();
+    }
+  });
+}
+
+function texWood() {
+  return makeTex(256,512,(ctx,w,h)=>{
+    const g=ctx.createLinearGradient(0,0,w,0);
+    g.addColorStop(0,'#6e4e28'); g.addColorStop(0.3,'#7a5c34'); g.addColorStop(0.7,'#7a5c34'); g.addColorStop(1,'#624820');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    // Grain
+    for(let i=0;i<60;i++){
+      ctx.strokeStyle=`hsl(25,${28+Math.random()*16}%,${18+Math.random()*20}%)`; ctx.lineWidth=0.5+Math.random()*1.5;
+      const y=Math.random()*h; ctx.beginPath(); ctx.moveTo(0,y+(-2+Math.random()*4));
+      for(let x=0;x<w;x+=20){ctx.lineTo(x,y+(-3+Math.random()*6));} ctx.stroke();
+    }
+    // Knots
+    for(let i=0;i<3;i++){
+      const kx=Math.random()*w, ky=Math.random()*h;
+      ctx.strokeStyle='rgba(40,25,10,0.4)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.ellipse(kx,ky,6+Math.random()*8,3+Math.random()*4,Math.PI/8,0,Math.PI*2); ctx.stroke();
+    }
+  });
+}
+
+function texSteel() {
+  return makeTex(256,256,(ctx,w,h)=>{
+    const g=ctx.createLinearGradient(0,0,w,0);
+    g.addColorStop(0,'#7a7a7a'); g.addColorStop(0.35,'#c0c0c0'); g.addColorStop(0.65,'#a0a0a0'); g.addColorStop(1,'#787878');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<100;i++){
+      ctx.strokeStyle=`rgba(255,255,255,${0.02+Math.random()*0.05})`; ctx.lineWidth=0.4;
+      const y=Math.random()*h; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y+(-1+Math.random()*2)); ctx.stroke();
+    }
+    for(let i=0;i<25;i++){
+      const x=Math.random()*w,y=Math.random()*h,r=1+Math.random()*5;
+      ctx.fillStyle=`rgba(130,60,15,${0.15+Math.random()*0.25})`;
       ctx.beginPath(); ctx.ellipse(x,y,r,r*0.7,0,0,Math.PI*2); ctx.fill();
     }
   });
 }
 
-// Normal map from a height texture (emboss)
-function makeNormalMap(srcTexture) {
-  const img = srcTexture.image;
-  const w=img.width, h=img.height;
-  const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h;
-  const ctx = tmp.getContext('2d'); ctx.drawImage(img,0,0);
-  const src = ctx.getImageData(0,0,w,h);
-  const dst = ctx.createImageData(w,h);
-  for(let y=0;y<h;y++){
-    for(let x=0;x<w;x++){
-      const i=(y*w+x)*4;
-      const l=src.data[((y*w+Math.max(0,x-1))*4)];
-      const r=src.data[((y*w+Math.min(w-1,x+1))*4)];
-      const u=src.data[((Math.max(0,y-1)*w+x)*4)];
-      const d=src.data[((Math.min(h-1,y+1)*w+x)*4)];
-      dst.data[i]   = Math.min(255,128+(r-l));
-      dst.data[i+1] = Math.min(255,128+(d-u));
-      dst.data[i+2] = 200;
-      dst.data[i+3] = 255;
-    }
-  }
-  ctx.putImageData(dst,0,0);
-  const t = new THREE.CanvasTexture(tmp);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
+function texSkin() {
+  return makeTex(128,128,(ctx,w,h)=>{
+    ctx.fillStyle='#c08858'; ctx.fillRect(0,0,w,h);
+    tnoise(ctx,w,h,8,0.1,'#b07848');
+    tnoise(ctx,w,h,4,0.08,'#d09868');
+  });
 }
 
-// Quartz vein texture for mining terrain
-function quartzVeinTexture() {
-  return makeTexture(256,512,(ctx,w,h)=>{
-    ctx.fillStyle='#4a4038'; ctx.fillRect(0,0,w,h);
-    // White/milky quartz veins
+function texGlove() {
+  return makeTex(128,128,(ctx,w,h)=>{
+    // Leather work glove — dark tan
+    ctx.fillStyle='#7a5a38'; ctx.fillRect(0,0,w,h);
+    tnoise(ctx,w,h,10,0.15,'#8a6a44');
+    tnoise(ctx,w,h,4,0.1,'#6a4a2c');
+    // Stitch lines
+    for(let i=0;i<5;i++){
+      ctx.strokeStyle='rgba(50,30,10,0.4)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+      const y=i*(h/5)+5; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    // Wear patches
     for(let i=0;i<8;i++){
-      const x0=Math.random()*w;
-      ctx.strokeStyle=`rgba(230,225,215,${0.6+Math.random()*0.4})`;
-      ctx.lineWidth=2+Math.random()*8;
-      ctx.beginPath(); let cx=x0,cy=0; ctx.moveTo(cx,cy);
-      for(let j=0;j<h/15;j++){cx+=(-10+Math.random()*20);cy+=15;ctx.lineTo(cx,cy);}
-      ctx.stroke();
-      // Secondary veinlets
-      ctx.strokeStyle=`rgba(210,200,185,${0.3+Math.random()*0.3})`;
-      ctx.lineWidth=0.5+Math.random()*2;
-      ctx.beginPath(); let cx2=x0+(-20+Math.random()*40),cy2=Math.random()*h*0.5; ctx.moveTo(cx2,cy2);
-      for(let j=0;j<6;j++){cx2+=(-18+Math.random()*36);cy2+=(-18+Math.random()*36);ctx.lineTo(cx2,cy2);}
-      ctx.stroke();
-    }
-    // Sulfide minerals (pyrite cubes)
-    for(let i=0;i<60;i++){
-      const x=Math.random()*w,y=Math.random()*h,s=2+Math.random()*5;
-      ctx.fillStyle=`rgba(${180+Math.random()*60},${160+Math.random()*40},${30+Math.random()*40},${0.7+Math.random()*0.3})`;
-      ctx.fillRect(x,y,s,s);
-    }
-    // Alteration halos (greenish)
-    for(let i=0;i<15;i++){
-      const x=Math.random()*w,y=Math.random()*h,r=8+Math.random()*20;
-      ctx.fillStyle=`rgba(100,130,80,${0.15+Math.random()*0.2})`;
+      const x=Math.random()*w,y=Math.random()*h,r=4+Math.random()*10;
+      ctx.fillStyle=`rgba(180,140,90,${0.12+Math.random()*0.18})`;
       ctx.beginPath(); ctx.ellipse(x,y,r,r*0.7,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
     }
   });
 }
 
-// Scree / talus slope texture
-function screeTexture() {
-  return makeTexture(512,512,(ctx,w,h)=>{
-    ctx.fillStyle='#6b5f52'; ctx.fillRect(0,0,w,h);
-    // Angular rock fragments of varying sizes
-    for(let i=0;i<400;i++){
-      const x=Math.random()*w,y=Math.random()*h;
-      const s=3+Math.random()*18;
-      const l=30+Math.floor(Math.random()*25);
-      const sat=5+Math.random()*12;
-      ctx.fillStyle=`hsl(${25+Math.random()*20},${sat}%,${l}%)`;
-      const pts=4+Math.floor(Math.random()*3);
-      ctx.beginPath();
-      for(let p=0;p<pts;p++){
-        const a=(p/pts)*Math.PI*2+Math.random()*0.5;
-        const r=s*(0.5+Math.random()*0.5);
-        p===0?ctx.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r):ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r);
-      }
-      ctx.closePath(); ctx.fill();
-      // Shadow edge
-      ctx.strokeStyle=`rgba(10,5,0,${0.3+Math.random()*0.3})`; ctx.lineWidth=0.5; ctx.stroke();
+function makeNormalFromTex(srcTex){
+  const img=srcTex.image, w=img.width, h=img.height;
+  const tmp=document.createElement('canvas'); tmp.width=w; tmp.height=h;
+  const ctx=tmp.getContext('2d'); ctx.drawImage(img,0,0);
+  const src=ctx.getImageData(0,0,w,h), dst=ctx.createImageData(w,h);
+  const str=3.5;
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      const tl=src.data[((y*w+Math.max(0,x-1))*4)]/255;
+      const tr=src.data[((y*w+Math.min(w-1,x+1))*4)]/255;
+      const tu=src.data[((Math.max(0,y-1)*w+x)*4)]/255;
+      const td=src.data[((Math.min(h-1,y+1)*w+x)*4)]/255;
+      const nx=Math.min(1,Math.max(-1,(tl-tr)*str)), ny=Math.min(1,Math.max(-1,(tu-td)*str));
+      const nz=Math.sqrt(Math.max(0,1-nx*nx-ny*ny));
+      dst.data[i]=Math.round((nx*0.5+0.5)*255);
+      dst.data[i+1]=Math.round((ny*0.5+0.5)*255);
+      dst.data[i+2]=Math.round(nz*255);
+      dst.data[i+3]=255;
     }
-  });
+  }
+  ctx.putImageData(dst,0,0);
+  const t=new THREE.CanvasTexture(tmp); t.wrapS=t.wrapT=THREE.RepeatWrapping; return t;
 }
 
-// Dry riverbed / alluvial gravel
-function gravelTexture() {
-  return makeTexture(512,512,(ctx,w,h)=>{
-    ctx.fillStyle='#b0a088'; ctx.fillRect(0,0,w,h);
-    for(let i=0;i<300;i++){
-      const x=Math.random()*w,y=Math.random()*h;
-      const rx=4+Math.random()*12, ry=3+Math.random()*8;
-      const l=45+Math.floor(Math.random()*30);
-      ctx.fillStyle=`hsl(${30+Math.random()*30},${8+Math.random()*15}%,${l}%)`;
-      ctx.beginPath(); ctx.ellipse(x,y,rx,ry,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='rgba(20,15,10,0.2)'; ctx.lineWidth=0.5; ctx.stroke();
-    }
-    // Sand between pebbles
-    for(let i=0;i<200;i++){
-      ctx.fillStyle=`rgba(200,180,130,${0.15+Math.random()*0.2})`;
-      ctx.beginPath(); ctx.arc(Math.random()*w,Math.random()*h,1+Math.random()*2,0,Math.PI*2); ctx.fill();
-    }
-  });
+// ══════ INIT ALL TEXTURES ══════
+const TEX={};
+function initTextures(){
+  TEX.rock   = texRock();   TEX.rock.repeat.set(14,14);
+  TEX.rockN  = makeNormalFromTex(TEX.rock);  TEX.rockN.repeat.set(14,14);
+  TEX.snow   = texSnow();   TEX.snow.repeat.set(12,12);
+  TEX.grass  = texGrass();  TEX.grass.repeat.set(16,16);
+  TEX.steppe = texSteppe(); TEX.steppe.repeat.set(22,22);
+  TEX.stepN  = makeNormalFromTex(TEX.steppe); TEX.stepN.repeat.set(22,22);
+  TEX.shale  = texShale();  TEX.shale.repeat.set(6,6);
+  TEX.shaleN = makeNormalFromTex(TEX.shale);  TEX.shaleN.repeat.set(6,6);
+  TEX.concrete = texConcrete(); TEX.concrete.repeat.set(4,4);
+  TEX.wood   = texWood();   TEX.wood.repeat.set(2,5);
+  TEX.steel  = texSteel();  TEX.steel.repeat.set(3,3);
+  TEX.skin   = texSkin();
+  TEX.glove  = texGlove();
 }
 
-// Caliche / calrete hardpan (Patagonian feature)
-function calicheTexture() {
-  return makeTexture(512,512,(ctx,w,h)=>{
-    ctx.fillStyle='#d8ceb0'; ctx.fillRect(0,0,w,h);
-    // Whitish calcareous patches
-    for(let i=0;i<80;i++){
-      const x=Math.random()*w,y=Math.random()*h,r=5+Math.random()*25;
-      ctx.fillStyle=`rgba(240,235,218,${0.4+Math.random()*0.5})`;
-      ctx.beginPath(); ctx.ellipse(x,y,r,r*(0.4+Math.random()*0.6),Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
-    }
-    // Cracks (polygonal desiccation)
-    for(let i=0;i<30;i++){
-      ctx.strokeStyle=`rgba(120,100,70,${0.3+Math.random()*0.4})`;
-      ctx.lineWidth=0.8+Math.random()*1.5;
-      ctx.beginPath();
-      let cx=Math.random()*w,cy=Math.random()*h; ctx.moveTo(cx,cy);
-      const segs=3+Math.floor(Math.random()*5);
-      for(let j=0;j<segs;j++){
-        cx+=(-30+Math.random()*60);cy+=(-30+Math.random()*60);
-        ctx.lineTo(cx,cy);
-      }
-      ctx.stroke();
-    }
-    // Reddish iron oxide staining
-    for(let i=0;i<40;i++){
-      const x=Math.random()*w,y=Math.random()*h,r=3+Math.random()*10;
-      ctx.fillStyle=`rgba(160,80,30,${0.1+Math.random()*0.2})`;
-      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.7,0,0,Math.PI*2); ctx.fill();
-    }
-  });
-}
-
-// Pre-bake all textures once
-const TEX = {};
-function initTextures() {
-  TEX.rock    = rockTexture();        TEX.rock.repeat.set(12,12);
-  TEX.snow    = snowRockTexture();    TEX.snow.repeat.set(10,10);
-  TEX.steppe  = steppeTexture();      TEX.steppe.repeat.set(20,20);
-  TEX.shale   = shaleTexture();       TEX.shale.repeat.set(8,8);
-  TEX.cliff   = cliffTexture();       TEX.cliff.repeat.set(4,8);
-  TEX.wood    = woodTexture();        TEX.wood.repeat.set(2,4);
-  TEX.steel   = steelTexture();       TEX.steel.repeat.set(3,3);
-  TEX.quartz  = quartzVeinTexture();  TEX.quartz.repeat.set(3,6);
-  TEX.scree   = screeTexture();       TEX.scree.repeat.set(8,8);
-  TEX.gravel  = gravelTexture();      TEX.gravel.repeat.set(10,10);
-  TEX.caliche = calicheTexture();     TEX.caliche.repeat.set(12,12);
-}
-
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // STATE
-// ══════════════════════════════════════════════════════
-const state = {
+// ══════════════════════════════════════════════════════════
+const state={
   job:null, energy:100, health:100, money:0,
   day:1, hour:8, minute:0,
   selectedSlot:0,
   inventory:[
-    {name:'Martillo',    icon:'🔨', count:1, type:'tool'},
-    {name:'Libreta',     icon:'📋', count:1, type:'tool'},
-    {name:'Kit muestras',icon:'🧪', count:5, type:'tool'},
-    {name:'Pastillas',   icon:'💊', count:3, type:'consumable'},
-    {name:'Agua',        icon:'🥤', count:2, type:'consumable'},
-    {name:'(vacío)',     icon:' ',  count:0, type:'empty'},
+    {name:'Piolet geológico', icon:'⛏️', count:1, type:'tool'},
+    {name:'Libreta',          icon:'📋', count:1, type:'tool'},
+    {name:'Kit muestras',     icon:'🧪', count:5, type:'tool'},
+    {name:'Pastillas',        icon:'💊', count:3, type:'consumable'},
+    {name:'Agua',             icon:'🥤', count:2, type:'consumable'},
+    {name:'(vacío)',          icon:' ',  count:0, type:'empty'},
   ],
   tasks:[], samplesCollected:0, logsRecorded:0,
   nearObject:null, dialogOpen:false, paused:false,
+  campfire:null, flareLight:null,
 };
 
-// ══════════════════════════════════════════════════════
-// RENDERER / SCENE
-// ══════════════════════════════════════════════════════
-const canvas = document.getElementById('canvas');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+// ══════════════════════════════════════════════════════════
+// RENDERER / SCENE / CAMERA
+// ══════════════════════════════════════════════════════════
+const canvas=document.getElementById('canvas');
+const renderer=new THREE.WebGLRenderer({canvas, antialias:true, logarithmicDepthBuffer:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 600);
-camera.position.set(0,1.7,0);
+const scene=new THREE.Scene();
+
+// Two cameras: world + viewmodel
+const camera=new THREE.PerspectiveCamera(74,window.innerWidth/window.innerHeight,0.05,800);
+camera.position.set(0,1.75,0);
+
+const vmCamera=new THREE.PerspectiveCamera(65,window.innerWidth/window.innerHeight,0.01,10);
+const vmScene=new THREE.Scene();
 
 // ── LIGHTS ──
-const sun = new THREE.DirectionalLight(0xffe8c0, 1.4);
-sun.position.set(120,200,80);
-sun.castShadow = true;
+const sun=new THREE.DirectionalLight(0xffecc8,1.5);
+sun.position.set(150,220,80);
+sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
-sun.shadow.camera.near=1; sun.shadow.camera.far=700;
-sun.shadow.camera.left=-250; sun.shadow.camera.right=250;
-sun.shadow.camera.top=250; sun.shadow.camera.bottom=-250;
-sun.shadow.bias = -0.0003;
+sun.shadow.camera.near=1; sun.shadow.camera.far=800;
+sun.shadow.camera.left=-300; sun.shadow.camera.right=300;
+sun.shadow.camera.top=300; sun.shadow.camera.bottom=-300;
+sun.shadow.bias=-0.0003;
 scene.add(sun);
-const ambient = new THREE.AmbientLight(0x4060a0,0.5);
+const ambient=new THREE.AmbientLight(0x3050a0,0.55);
 scene.add(ambient);
-const hemi = new THREE.HemisphereLight(0x88bbdd,0xa07040,0.5);
+const hemi=new THREE.HemisphereLight(0x88bbdd,0x9a7040,0.6);
 scene.add(hemi);
+// VM scene light
+const vmAmbient=new THREE.AmbientLight(0xffffff,1.0);
+vmScene.add(vmAmbient);
+const vmSun=new THREE.DirectionalLight(0xffd8a0,1.2);
+vmSun.position.set(1,2,1.5); vmScene.add(vmSun);
 
-// ══════════════════════════════════════════════════════
-// NOISE + TERRAIN HELPERS
-// ══════════════════════════════════════════════════════
-function hash(x,z){return Math.sin(x*127.1+z*311.7)*43758.5453%1;}
+// ══════════════════════════════════════════════════════════
+// NOISE
+// ══════════════════════════════════════════════════════════
+function hash(x,z){return Math.abs(Math.sin(x*127.1+z*311.7)*43758.5453)%1;}
 function smoothNoise(x,z){
   const ix=Math.floor(x),iz=Math.floor(z),fx=x-ix,fz=z-iz;
   const ux=fx*fx*(3-2*fx),uz=fz*fz*(3-2*fz);
   const a=hash(ix,iz),b=hash(ix+1,iz),c=hash(ix,iz+1),d=hash(ix+1,iz+1);
-  return a+ux*(b-a)+uz*(c-a)+ux*uz*(a-b-c+d);
+  return a+(b-a)*ux+(c-a)*uz+(a-b-c+d)*ux*uz;
 }
 function fbm(x,z,oct=6,sc=1){
-  let v=0,a=1,f=sc,max=0;
-  for(let i=0;i<oct;i++){v+=smoothNoise(x*f,z*f)*a;max+=a;a*=0.5;f*=2.1;}
-  return v/max;
+  let v=0,a=1,f=sc,mx=0;
+  for(let i=0;i<oct;i++){v+=smoothNoise(x*f,z*f)*a;mx+=a;a*=0.5;f*=2.1;}
+  return v/mx;
 }
 
-const terrainCache = new Map();
-function getTerrainY(x, z, groundMesh) {
-  const key = `${Math.round(x*2)},${Math.round(z*2)}`;
+// ══════════════════════════════════════════════════════════
+// TERRAIN Y LOOKUP
+// ══════════════════════════════════════════════════════════
+const terrainCache=new Map();
+function getTerrainY(x,z,mesh){
+  if(!mesh) return 0;
+  const key=`${Math.round(x*2)},${Math.round(z*2)}`;
   if(terrainCache.has(key)) return terrainCache.get(key);
-  const ray = new THREE.Raycaster(new THREE.Vector3(x,300,z),new THREE.Vector3(0,-1,0));
-  const hits = ray.intersectObject(groundMesh);
-  const y = hits.length ? hits[0].point.y : 0;
+  const ray=new THREE.Raycaster(new THREE.Vector3(x,400,z),new THREE.Vector3(0,-1,0));
+  const hits=ray.intersectObject(mesh);
+  const y=hits.length?hits[0].point.y:0;
   terrainCache.set(key,y);
   return y;
 }
 
-// ══════════════════════════════════════════════════════
-// TERRAIN BUILDERS
-// ══════════════════════════════════════════════════════
-function buildMiningTerrain() {
-  scene.background = new THREE.Color(0x6090b0);
-  scene.fog = new THREE.FogExp2(0x6090b0, 0.007);
+// ══════════════════════════════════════════════════════════
+// VIEWMODEL — MANOS + HERRAMIENTA
+// ══════════════════════════════════════════════════════════
+let vmRoot=null, vmSwingT=0, vmWalkBob=0;
+const vmTools=[];
 
-  // Multi-layer terrain with vertex color blending
-  const geo = new THREE.PlaneGeometry(700,700,150,150);
-  geo.rotateX(-Math.PI/2);
-  const pos = geo.attributes.position;
-  const colors = [];
-  for(let i=0;i<pos.count;i++){
-    const x=pos.getX(i), z=pos.getZ(i);
-    const d=Math.sqrt(x*x+z*z)/350;
-    const mountain = Math.max(0,(1-d*1.1))*fbm(x,z,7,0.012)*90;
-    const detail   = fbm(x+500,z+500,4,0.06)*6;
-    const ridge    = Math.pow(Math.abs(fbm(x+200,z,3,0.02))-0.3,2)*40;
-    const h = mountain + detail + ridge;
-    pos.setY(i,h);
-    // Vertex colour: grass→rock→snow by height+slope
-    const t=Math.min(1,h/60);
-    const snow=t>0.65?((t-0.65)/0.35):0;
-    const rock=t>0.2?Math.min(1,(t-0.2)/0.45):0;
-    const r=0.45+rock*0.25+snow*0.45;
-    const g=0.5-rock*0.1+snow*0.45;
-    const b=0.35+snow*0.5;
-    colors.push(r,g,b);
-  }
-  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  geo.computeVertexNormals();
+function buildGloveHand(side){ // side: +1 right, -1 left
+  const g=new THREE.Group();
+  const gloveMat=new THREE.MeshStandardMaterial({map:TEX.glove,roughness:0.85,metalness:0.05});
+  const skinMat=new THREE.MeshStandardMaterial({map:TEX.skin,roughness:0.9,metalness:0});
 
-  // Use MeshStandardMaterial for PBR
-  const mat = new THREE.MeshStandardMaterial({
-    map: TEX.rock,
-    vertexColors: true,
-    roughness: 0.92,
-    metalness: 0.05,
-    envMapIntensity: 0.3,
-  });
-  const ground = new THREE.Mesh(geo, mat);
-  ground.receiveShadow = true;
-  scene.add(ground);
+  // Palm — flattened box
+  const palm=new THREE.Mesh(new THREE.BoxGeometry(0.065,0.095,0.055),gloveMat);
+  palm.position.set(side*0.01,0,0);
+  g.add(palm);
 
-  // Second snow layer at high altitude (overlay)
-  const snowGeo = new THREE.PlaneGeometry(700,700,80,80);
-  snowGeo.rotateX(-Math.PI/2);
-  const sp = snowGeo.attributes.position;
-  for(let i=0;i<sp.count;i++){
-    const x=sp.getX(i),z=sp.getZ(i);
-    const d=Math.sqrt(x*x+z*z)/350;
-    const h=Math.max(0,(1-d*1.1))*fbm(x,z,7,0.012)*90+fbm(x,z,4,0.06)*6;
-    sp.setY(i,h+0.08);
-  }
-  snowGeo.computeVertexNormals();
-  const snowMat = new THREE.MeshStandardMaterial({
-    map: TEX.snow, roughness:0.8, metalness:0,
-    transparent:true, opacity:0.0,
-    alphaTest:0.01,
-  });
-  // Snow only where high — handle per vertex with alphaMap workaround
-  // Just overlay a partial snow mesh for peaks
-  const snowMesh = new THREE.Mesh(snowGeo, snowMat);
-  // We'll tint it by height in animation
-  scene.add(snowMesh);
+  // Thumb
+  const thumb=new THREE.Mesh(new THREE.CylinderGeometry(0.013,0.016,0.048,6),gloveMat);
+  thumb.position.set(side*0.048,-0.012,0.012);
+  thumb.rotation.z=side*0.55; thumb.rotation.x=0.3;
+  g.add(thumb);
 
-  // Rock outcrops — agrupados como asomos geológicos reales
-  for(let i=0;i<50;i++){
-    const x=(Math.random()-0.5)*400,z=(Math.random()-0.5)*400;
-    const gy=getTerrainY(x,z,ground);
-    addRock(x,gy,z, 1+Math.random()*4, 0.5+Math.random()*2);
-  }
-
-  // Clústers de afloramientos — imitan lineamientos estructurales
-  const lineaments=[
-    {ax:-60,az:-80,bx:60,bz:20,count:18},
-    {ax:30,az:60,bx:120,bz:100,count:12},
-    {ax:-100,az:30,bx:-40,bz:90,count:10},
-  ];
-  lineaments.forEach(ln=>{
-    for(let i=0;i<ln.count;i++){
-      const t=i/ln.count;
-      const jx=(Math.random()-0.5)*18, jz=(Math.random()-0.5)*18;
-      const x=ln.ax+(ln.bx-ln.ax)*t+jx;
-      const z=ln.az+(ln.bz-ln.az)*t+jz;
-      const gy=getTerrainY(x,z,ground);
-      const sz=0.8+Math.random()*3.5;
-      addRock(x,gy,z, sz, sz*(0.5+Math.random()*1.2));
-    }
+  // 4 fingers (simplified)
+  const fingerOffsets=[[-0.022,-0.012],[0,0],[0.022,-0.012],[0.040,-0.024]];
+  fingerOffsets.forEach(([ox,oz],fi)=>{
+    // Knuckle
+    const knuckle=new THREE.Mesh(new THREE.SphereGeometry(0.012,6,4),gloveMat);
+    knuckle.position.set(side*0.01+ox*side, 0.052, oz);
+    g.add(knuckle);
+    // Finger proximal
+    const fp=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.012,0.038,6),gloveMat);
+    fp.position.set(side*0.01+ox*side, 0.085, oz);
+    g.add(fp);
+    // Finger tip
+    const ft=new THREE.Mesh(new THREE.SphereGeometry(0.011,6,4),gloveMat);
+    ft.position.set(side*0.01+ox*side, 0.106, oz);
+    g.add(ft);
   });
 
-  // Escarpes / paredones de roca (afloramientos verticales de alto relieve)
-  addCliffFace(-40, getTerrainY(-40,40,ground), 40, 12, 5);
-  addCliffFace(60,  getTerrainY(60,-20,ground), -20, 18, 8);
-  addCliffFace(-80, getTerrainY(-80,-30,ground), -30, 8, 4);
+  // Wrist + cuff
+  const wrist=new THREE.Mesh(new THREE.CylinderGeometry(0.034,0.038,0.055,8),gloveMat);
+  wrist.position.set(side*0.01,-0.065,0);
+  g.add(wrist);
+  // Forearm sleeve (jacket orange/yellow)
+  const sleeveM=new THREE.MeshStandardMaterial({color:state.job==='minero'?0xd87820:0x224488,roughness:0.8,metalness:0.05});
+  const sleeve=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.042,0.12,8),sleeveM);
+  sleeve.position.set(side*0.01,-0.14,0);
+  g.add(sleeve);
 
-  // Venas de cuarzo expuestas en superficie
-  for(let i=0;i<12;i++){
-    const x=-80+Math.random()*160, z=-60+Math.random()*120;
-    const gy=getTerrainY(x,z,ground);
-    addQuartzVein(x, gy, z);
-  }
-
-  // Talud de detritos (scree) bajo los escarpes
-  addScreeSlope(-40, getTerrainY(-40,55,ground), 55, 14);
-  addScreeSlope(58,  getTerrainY(58,-30,ground), -30, 10);
-
-  // Lecho de quebrada seco (sedimentos aluviales)
-  addDryCreekBed(ground);
-
-  // Árboles/arbustos andinos (queñoas, arbustos de puna)
-  for(let i=0;i<30;i++){
-    const x=(Math.random()-0.5)*250, z=(Math.random()-0.5)*250;
-    const gy=getTerrainY(x,z,ground);
-    if(gy<25) addAndeanShrub(x,gy,z);
-  }
-  // Queñoas (árboles de altura) entre 15 y 35 m
-  for(let i=0;i<15;i++){
-    const x=(Math.random()-0.5)*200, z=(Math.random()-0.5)*200;
-    const gy=getTerrainY(x,z,ground);
-    if(gy>12 && gy<32) addQueñoa(x,gy,z);
-  }
-
-  // Señalización geológica de campo
-  addFieldMarker(-5, getTerrainY(-5,10,ground)+0.1, 10, 'EST-01');
-  addFieldMarker(35, getTerrainY(35,15,ground)+0.1, 15, 'EST-02');
-  addFieldMarker(-30, getTerrainY(-30,5,ground)+0.1, 5, 'EST-03');
-
-  // Mine shaft
-  addMineShaft(20,getTerrainY(20,30,ground)+0.1,30);
-  // Camp
-  addCamp(0,getTerrainY(0,-20,ground)+0.1,-20,false);
-  return ground;
+  return g;
 }
 
-function buildOilTerrain() {
-  scene.background = new THREE.Color(0xc0ccd8);
-  scene.fog = new THREE.FogExp2(0xc0ccd8,0.004);
-
-  const geo = new THREE.PlaneGeometry(900,900,120,120);
-  geo.rotateX(-Math.PI/2);
-  const pos = geo.attributes.position;
-  const colors=[];
-  for(let i=0;i<pos.count;i++){
-    const x=pos.getX(i),z=pos.getZ(i);
-    const roll=fbm(x,z,4,0.006)*12+fbm(x+300,z+300,3,0.025)*3;
-    pos.setY(i,roll);
-    // Steppe colour variation: ochre/beige with pale patches
-    const v=fbm(x+100,z+100,2,0.03);
-    const r=0.72+v*0.1; const g=0.65+v*0.08; const b=0.48+v*0.05;
-    colors.push(r,g,b);
-  }
-  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  geo.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({
-    map: TEX.steppe,
-    normalMap: makeNormalMap(TEX.steppe),
-    normalScale: new THREE.Vector2(0.6,0.6),
-    vertexColors:true, roughness:0.95, metalness:0,
-  });
-  const ground = new THREE.Mesh(geo,mat);
-  ground.receiveShadow=true;
-  scene.add(ground);
-
-  // Afloramientos de pelita negra (Fm. Vaca Muerta) — en fajas
-  for(let i=0;i<25;i++){
-    const x=(Math.random()-0.5)*600,z=(Math.random()-0.5)*600;
-    const gy=getTerrainY(x,z,ground);
-    addShaleLayer(x,gy,z);
-  }
-
-  // Crestones de arenisca — cuchillas orientadas NNO (típicas de la cuenca)
-  for(let i=0;i<8;i++){
-    const cx=-200+Math.random()*400, cz=-200+Math.random()*400;
-    addSandstoneCrest(cx, getTerrainY(cx,cz,ground), cz, 18+Math.random()*30);
-  }
-
-  // Hardpan de caliche (costras calcáreas superficiales)
-  for(let i=0;i<10;i++){
-    const x=(Math.random()-0.5)*500, z=(Math.random()-0.5)*500;
-    const gy=getTerrainY(x,z,ground);
-    addCalichePatch(x,gy,z);
-  }
-
-  // Cañadones (cañones pequeños de la estepa)
-  addCanyon(ground, -120, -80, 60, 30);
-  addCanyon(ground, 100, 60, -50, 25);
-
-  // Arbustos patagónicos — jarilla, zampa, molle
-  for(let i=0;i<150;i++){
-    const x=(Math.random()-0.5)*600,z=(Math.random()-0.5)*600;
-    const gy=getTerrainY(x,z,ground);
-    addBush(x,gy,z);
-  }
-  // Matas de coirón (pasto duro patagónico)
-  for(let i=0;i<200;i++){
-    const x=(Math.random()-0.5)*580, z=(Math.random()-0.5)*580;
-    const gy=getTerrainY(x,z,ground);
-    addCoiron(x,gy,z);
-  }
-
-  // Pileta de tratamiento (cutting pit)
-  addCuttingPit(ground, 55, 20);
-
-  // Línea de tendido eléctrico de baja tensión al equipo
-  addPowerLine(ground, -40, -40, 30, 30);
-
-  // Señalización de pozo (mojones)
-  addWellMarker(30, getTerrainY(30,30,ground)+0.1, 30);
-
-  // Camino de acceso de ripio (tierra compactada)
-  addAccessRoad(ground);
-
-  // Oil rig
-  addOilRig(30,getTerrainY(30,30,ground),30);
-  // Camp / trailers
-  addCamp(0,getTerrainY(0,-30,ground)+0.1,-30,true);
-  return ground;
+function buildTool_Hammer(){
+  const g=new THREE.Group();
+  const steelM=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.45,metalness:0.85,color:0xcccccc});
+  const woodM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.88,metalness:0});
+  // Handle
+  const handle=new THREE.Mesh(new THREE.CylinderGeometry(0.009,0.011,0.28,8),woodM);
+  handle.position.set(0,0,0);
+  g.add(handle);
+  // Head
+  const head=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.022,0.06,8),steelM);
+  head.rotation.z=Math.PI/2;
+  head.position.set(0,0.16,0);
+  g.add(head);
+  // Pick end
+  const pick=new THREE.Mesh(new THREE.ConeGeometry(0.013,0.055,8),steelM);
+  pick.rotation.z=Math.PI/2;
+  pick.position.set(0.058,0.16,0);
+  g.add(pick);
+  return g;
 }
 
-// ══════════════════════════════════════════════════════
-// SCENE OBJECTS
-// ══════════════════════════════════════════════════════
-const interactables=[];
+function buildTool_Clipboard(){
+  const g=new THREE.Group();
+  const boardM=new THREE.MeshStandardMaterial({color:0x8B6914,roughness:0.8,metalness:0.1});
+  const paperM=new THREE.MeshStandardMaterial({color:0xf0ead8,roughness:0.95,metalness:0});
+  const board=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.16,0.008),boardM);
+  g.add(board);
+  const paper=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.13,0.004),paperM);
+  paper.position.set(0,-0.008,0.007);
+  g.add(paper);
+  // Clip
+  const clip=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.016,0.012),new THREE.MeshStandardMaterial({color:0x888888,metalness:0.9,roughness:0.3}));
+  clip.position.set(0,0.078,0.004);
+  g.add(clip);
+  // Pencil
+  const pencil=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.15,6),new THREE.MeshStandardMaterial({color:0xf0c000,roughness:0.7}));
+  pencil.position.set(0.07,0,0.01); pencil.rotation.z=0.2;
+  g.add(pencil);
+  return g;
+}
 
-function addRock(x,y,z,sx,sy){
-  const seg=Math.floor(3+Math.random()*3);
-  const geo=new THREE.DodecahedronGeometry(sx,0);
-  // Displace verts for natural look
+function buildTool_SampleKit(){
+  const g=new THREE.Group();
+  const bagM=new THREE.MeshStandardMaterial({color:0xcc9900,roughness:0.9,metalness:0});
+  const bag=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.06,0.03),bagM);
+  g.add(bag);
+  // Zip
+  const zip=new THREE.Mesh(new THREE.BoxGeometry(0.085,0.005,0.005),new THREE.MeshStandardMaterial({color:0x333333,metalness:0.8,roughness:0.3}));
+  zip.position.set(0,0.031,0.016);
+  g.add(zip);
+  // Label
+  const label=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.03,0.002),new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.95}));
+  label.position.set(0,0,0.016);
+  g.add(label);
+  return g;
+}
+
+function buildTool_Pills(){
+  const g=new THREE.Group();
+  const bottleM=new THREE.MeshStandardMaterial({color:0xff6620,roughness:0.3,metalness:0,transparent:true,opacity:0.85});
+  const bottle=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.07,10),bottleM);
+  g.add(bottle);
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.027,0.027,0.02,10),new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.5,metalness:0.1}));
+  cap.position.set(0,0.045,0);
+  g.add(cap);
+  return g;
+}
+
+function buildTool_Water(){
+  const g=new THREE.Group();
+  const bottleM=new THREE.MeshStandardMaterial({color:0x4488cc,roughness:0.2,metalness:0.05,transparent:true,opacity:0.75});
+  const bottle=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.025,0.12,10),bottleM);
+  g.add(bottle);
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.018,8),new THREE.MeshStandardMaterial({color:0x225588,roughness:0.5}));
+  cap.position.set(0,0.069,0);
+  g.add(cap);
+  return g;
+}
+
+function buildTool_Empty(){
+  return new THREE.Group(); // empty fist
+}
+
+const toolBuilders=[buildTool_Hammer,buildTool_Clipboard,buildTool_SampleKit,buildTool_Pills,buildTool_Water,buildTool_Empty];
+
+function initViewModel(){
+  // Clear
+  while(vmScene.children.length) vmScene.remove(vmScene.children[0]);
+  vmScene.add(vmAmbient); vmScene.add(vmSun);
+
+  vmRoot=new THREE.Group();
+  vmScene.add(vmRoot);
+
+  // Right hand (dominant)
+  const rightHand=buildGloveHand(1);
+  rightHand.position.set(0.13,-0.18,-0.28);
+  rightHand.rotation.set(-0.15,0.1,-0.08);
+  vmRoot.add(rightHand);
+
+  // Left hand (support)
+  const leftHand=buildGloveHand(-1);
+  leftHand.position.set(-0.09,-0.21,-0.32);
+  leftHand.rotation.set(-0.1,-0.05,0.06);
+  vmRoot.add(leftHand);
+
+  // Build all tool meshes, only show active
+  vmTools.length=0;
+  toolBuilders.forEach((buildFn,i)=>{
+    const t=buildFn();
+    t.position.set(0.13,-0.09,-0.22);
+    t.rotation.set(-0.05,0,0);
+    t.visible=(i===state.selectedSlot);
+    vmRoot.add(t);
+    vmTools.push(t);
+  });
+}
+
+function updateViewModel(dt, moving){
+  if(!vmRoot) return;
+
+  vmWalkBob += moving ? dt*5.5 : dt*1.0;
+
+  // Subtle walk bob
+  const bob=moving ? Math.sin(vmWalkBob)*0.008 : Math.sin(vmWalkBob*0.5)*0.003;
+  const sway=moving ? Math.sin(vmWalkBob*0.5)*0.005 : 0;
+
+  // Swing animation when F pressed
+  if(vmSwingT>0){
+    vmSwingT=Math.max(0,vmSwingT-dt*4);
+    const s=Math.sin(vmSwingT*Math.PI);
+    vmRoot.rotation.x=-s*0.55;
+    vmRoot.rotation.z=s*0.15;
+    vmRoot.position.set(sway, bob-s*0.04, 0);
+  } else {
+    vmRoot.rotation.x = THREE.MathUtils.lerp(vmRoot.rotation.x, 0, 0.12);
+    vmRoot.rotation.z = THREE.MathUtils.lerp(vmRoot.rotation.z, 0, 0.12);
+    vmRoot.position.set(
+      THREE.MathUtils.lerp(vmRoot.position.x, sway, 0.1),
+      THREE.MathUtils.lerp(vmRoot.position.y, bob, 0.1),
+      0
+    );
+  }
+
+  // Show active tool
+  vmTools.forEach((t,i)=>{ t.visible=(i===state.selectedSlot); });
+
+  // Update sleeve color on job switch
+  // (done at build time, fine)
+}
+
+function triggerSwing(){
+  vmSwingT=1;
+}
+
+// ══════════════════════════════════════════════════════════
+// ORGANIC GEOMETRY HELPERS
+// ══════════════════════════════════════════════════════════
+
+// Displace vertices of any geometry with noise
+function displaceGeo(geo, amount){
   const pos=geo.attributes.position;
   for(let i=0;i<pos.count;i++){
-    pos.setX(i,pos.getX(i)*(0.7+Math.random()*0.6));
-    pos.setY(i,pos.getY(i)*(0.7+Math.random()*0.6));
-    pos.setZ(i,pos.getZ(i)*(0.7+Math.random()*0.6));
+    const nx=pos.getX(i), ny=pos.getY(i), nz=pos.getZ(i);
+    const d=amount*(0.7+Math.random()*0.6);
+    pos.setXYZ(i,
+      nx*(1+(-d*0.5+Math.random()*d)),
+      ny*(1+(-d*0.5+Math.random()*d)),
+      nz*(1+(-d*0.5+Math.random()*d))
+    );
   }
   geo.computeVertexNormals();
+}
+
+function makeRockGeo(size){
+  // IcosahedronGeometry then displace — much more natural than dodecahedron
+  const geo=new THREE.IcosahedronGeometry(size,2);
+  const pos=geo.attributes.position;
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+    const n=0.22+Math.random()*0.28;
+    pos.setXYZ(i,x*(1+(-n+Math.random()*n*2)),y*(1+(-n*0.6+Math.random()*n*1.2)),z*(1+(-n+Math.random()*n*2)));
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// ══════════════════════════════════════════════════════════
+// TERRAIN BUILDERS
+// ══════════════════════════════════════════════════════════
+let groundMesh=null;
+
+function buildMiningTerrain(){
+  terrainCache.clear();
+  scene.background=new THREE.Color(0x5888b0);
+  scene.fog=new THREE.FogExp2(0x5888b0,0.0065);
+
+  const res=180;
+  const geo=new THREE.PlaneGeometry(750,750,res,res);
+  geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position;
+  const colors=[];
+
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i), z=pos.getZ(i);
+    const d=Math.sqrt(x*x+z*z)/375;
+
+    // Multiple noise layers for Andean character
+    const base     = Math.max(0,(1-d*1.05))*fbm(x,z,8,0.010)*95;
+    const detail   = fbm(x+500,z+200,5,0.055)*7;
+    const ridge    = Math.pow(Math.max(0,fbm(x+300,z+300,3,0.018)-0.35),1.5)*55;
+    const gully    = -Math.max(0,fbm(x+800,z+600,3,0.04)-0.55)*12;
+    const h = base + detail + ridge + gully;
+
+    pos.setY(i, h);
+
+    // Vertex colours: grass (low) → rock (mid) → snow (high)
+    const tn = Math.min(1, h/75);
+    const grassBlend = Math.max(0, 1 - tn*3.5);
+    const rockBlend  = Math.max(0, Math.min(1, tn*3.5-0.4));
+    const snowBlend  = Math.max(0, (tn-0.68)*3.5);
+
+    const rc=0.48+rockBlend*0.2+snowBlend*0.52;
+    const gc=0.52*grassBlend + (0.42+rockBlend*0.08)*rockBlend + snowBlend*0.5;
+    const bc=0.30*grassBlend + 0.30*rockBlend + snowBlend*0.55;
+    colors.push(
+      Math.min(1, 0.36*grassBlend + rc*(1-grassBlend)),
+      Math.min(1, 0.48*grassBlend + gc*(1-grassBlend)),
+      Math.min(1, 0.22*grassBlend + bc*(1-grassBlend))
+    );
+  }
+
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.computeVertexNormals();
+
   const mat=new THREE.MeshStandardMaterial({
-    map:TEX.cliff,
-    roughness:0.9, metalness:0.02,
-    color: new THREE.Color().setHSL(0.07, 0.12, 0.38+Math.random()*0.15),
+    map:TEX.rock,
+    normalMap:TEX.rockN,
+    normalScale:new THREE.Vector2(1.2,1.2),
+    roughness:0.92,
+    metalness:0.04,
+    vertexColors:true,
+  });
+  const ground=new THREE.Mesh(geo,mat);
+  ground.receiveShadow=true;
+  ground.castShadow=false;
+  scene.add(ground);
+  groundMesh=ground;
+
+  // Populate after terrain is ready
+  setTimeout(()=>populateMining(ground),0);
+  return ground;
+}
+
+function populateMining(ground){
+  // Rock outcrops — random
+  for(let i=0;i<60;i++){
+    const x=(Math.random()-0.5)*420, z=(Math.random()-0.5)*420;
+    const gy=getTerrainY(x,z,ground);
+    const sz=0.5+Math.random()*3.5;
+    addRock(x,gy,z,sz,sz*(0.45+Math.random()*0.9));
+  }
+  // Structural lineaments
+  const lines=[
+    {ax:-55,az:-90,bx:65,bz:15,n:20},
+    {ax:25,az:55,bx:130,bz:105,n:14},
+    {ax:-110,az:25,bx:-35,bz:85,n:11},
+  ];
+  lines.forEach(ln=>{
+    for(let i=0;i<ln.n;i++){
+      const t=i/ln.n;
+      const x=ln.ax+(ln.bx-ln.ax)*t+(-16+Math.random()*32);
+      const z=ln.az+(ln.bz-ln.az)*t+(-16+Math.random()*32);
+      const gy=getTerrainY(x,z,ground);
+      const sz=0.6+Math.random()*3;
+      addRock(x,gy,z,sz,sz*(0.5+Math.random()*1.1));
+    }
+  });
+  // Cliff faces
+  addCliffFace(-42,getTerrainY(-42,42,ground),42,15,7);
+  addCliffFace(62,getTerrainY(62,-18,ground),-18,20,9);
+  addCliffFace(-85,getTerrainY(-85,-35,ground),-35,10,5);
+  // Quartz veins
+  for(let i=0;i<14;i++){
+    const x=-90+Math.random()*180, z=-70+Math.random()*140;
+    addQuartzVein(x,getTerrainY(x,z,ground),z);
+  }
+  // Vegetation
+  for(let i=0;i<40;i++){
+    const x=(Math.random()-0.5)*280, z=(Math.random()-0.5)*280;
+    const gy=getTerrainY(x,z,ground);
+    if(gy<28) addAndeanShrub(x,gy,z);
+  }
+  for(let i=0;i<18;i++){
+    const x=(Math.random()-0.5)*220, z=(Math.random()-0.5)*220;
+    const gy=getTerrainY(x,z,ground);
+    if(gy>10&&gy<34) addQueñoa(x,gy,z);
+  }
+  // Stream bed
+  addDryStreamBed(ground);
+  // Field markers
+  addFieldMarker(-6,getTerrainY(-6,12,ground)+0.05,12,'EST-01');
+  addFieldMarker(34,getTerrainY(34,16,ground)+0.05,16,'EST-02');
+  addFieldMarker(-32,getTerrainY(-32,6,ground)+0.05,6,'EST-03');
+  // Mine shaft & camp
+  addMineShaft(22,getTerrainY(22,32,ground)+0.05,32);
+  addCamp(0,getTerrainY(0,-22,ground)+0.05,-22,false);
+}
+
+function buildOilTerrain(){
+  terrainCache.clear();
+  scene.background=new THREE.Color(0xbdc8d5);
+  scene.fog=new THREE.FogExp2(0xbdc8d5,0.0038);
+
+  const res=140;
+  const geo=new THREE.PlaneGeometry(1000,1000,res,res);
+  geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position;
+  const colors=[];
+
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i), z=pos.getZ(i);
+    const roll   = fbm(x,z,5,0.005)*14;
+    const detail = fbm(x+300,z+300,4,0.022)*4;
+    const mesa   = Math.max(0,fbm(x+700,z+200,3,0.008)-0.52)*30;
+    const h = roll + detail + mesa;
+    pos.setY(i,h);
+
+    // Ochre/beige steppe with pale patches
+    const v=fbm(x+100,z+100,3,0.03);
+    const dryness=Math.min(1,h/18);
+    const r=0.70+v*0.1+dryness*0.04;
+    const g=0.62+v*0.08+dryness*0.02;
+    const b=0.44+v*0.05-dryness*0.02;
+    colors.push(r,g,b);
+  }
+
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.computeVertexNormals();
+
+  const mat=new THREE.MeshStandardMaterial({
+    map:TEX.steppe,
+    normalMap:TEX.stepN,
+    normalScale:new THREE.Vector2(0.8,0.8),
+    roughness:0.95,
+    metalness:0,
+    vertexColors:true,
+  });
+  const ground=new THREE.Mesh(geo,mat);
+  ground.receiveShadow=true;
+  scene.add(ground);
+  groundMesh=ground;
+
+  setTimeout(()=>populateOil(ground),0);
+  return ground;
+}
+
+function populateOil(ground){
+  // Shale outcrops
+  for(let i=0;i<30;i++){
+    const x=(Math.random()-0.5)*700, z=(Math.random()-0.5)*700;
+    addShaleOutcrop(x,getTerrainY(x,z,ground),z);
+  }
+  // Sandstone ridges
+  for(let i=0;i<10;i++){
+    const cx=-250+Math.random()*500, cz=-250+Math.random()*500;
+    addSandstoneRidge(cx,getTerrainY(cx,cz,ground),cz,20+Math.random()*35);
+  }
+  // Bushes
+  for(let i=0;i<180;i++){
+    const x=(Math.random()-0.5)*700, z=(Math.random()-0.5)*700;
+    addPatagonianBush(x,getTerrainY(x,z,ground),z);
+  }
+  // Coiron grass
+  for(let i=0;i<250;i++){
+    const x=(Math.random()-0.5)*680, z=(Math.random()-0.5)*680;
+    addCoiron(x,getTerrainY(x,z,ground),z);
+  }
+  // Canyon
+  addCanyon(ground,-130,-85,65,28);
+  // Access road
+  addAccessRoad(ground);
+  // Power line
+  addPowerLine(ground,-45,-45,32,32);
+  // Cutting pit
+  addCuttingPit(ground,58,22);
+  // Well marker
+  addWellMarker(32,getTerrainY(32,32,ground)+0.05,32);
+  // Oil rig & camp
+  addOilRig(32,getTerrainY(32,32,ground),32);
+  addCamp(0,getTerrainY(0,-32,ground)+0.05,-32,true);
+}
+
+// ══════════════════════════════════════════════════════════
+// SCENE OBJECTS
+// ══════════════════════════════════════════════════════════
+const interactables=[];
+
+// ── Rock ──────────────────────────────────────────────────
+function addRock(x,y,z,sx,sy){
+  const geo=makeRockGeo(sx);
+  const mat=new THREE.MeshStandardMaterial({
+    map:TEX.rock,
+    normalMap:TEX.rockN,
+    normalScale:new THREE.Vector2(1.5,1.5),
+    roughness:0.88+Math.random()*0.08,
+    metalness:0.02,
+    color:new THREE.Color().setHSL(0.07+Math.random()*0.04, 0.1+Math.random()*0.08, 0.34+Math.random()*0.18),
   });
   const m=new THREE.Mesh(geo,mat);
-  m.position.set(x,y+sy*0.3,z);
+  m.position.set(x,y+sy*0.28,z);
   m.scale.set(1,sy/sx,1);
-  m.rotation.set(Math.random()*1.5,Math.random()*6,Math.random()*1.5);
+  m.rotation.set(Math.random()*1.8,Math.random()*Math.PI*2,Math.random()*1.8);
   m.castShadow=true; m.receiveShadow=true;
   scene.add(m);
   if(sx>1.5){
@@ -778,613 +968,601 @@ function addRock(x,y,z,sx,sy){
   }
 }
 
-function addShaleLayer(x,y,z){
-  const w=3+Math.random()*8,d=2+Math.random()*5;
-  const geo=new THREE.BoxGeometry(w,0.3+Math.random()*0.5,d);
-  const mat=new THREE.MeshStandardMaterial({map:TEX.shale,roughness:0.88,metalness:0.01});
-  const m=new THREE.Mesh(geo,mat);
-  m.position.set(x,y+0.2,z);
-  m.rotation.y=Math.random()*Math.PI;
-  m.castShadow=true; m.receiveShadow=true;
-  scene.add(m);
-  if(w>5){
-    m.userData={type:'rock',prompt:'[ E ] Muestrear pelita negra (Fm. Vaca Muerta)',id:'shale_'+x};
-    interactables.push(m);
-  }
-}
-
-// ── Paredón de roca / escarpe ──────────────────────────
-function addCliffFace(x, y, z, width, height) {
-  const segs = Math.floor(width/2);
-  for(let i=0;i<segs;i++){
-    const ox = (i/segs - 0.5)*width;
-    const h = height*(0.6+Math.random()*0.8);
-    const w = width/segs*(0.7+Math.random()*0.6);
-    const mat = new THREE.MeshStandardMaterial({
-      map: TEX.cliff, roughness:0.92, metalness:0.02,
-      color: new THREE.Color().setHSL(0.07,0.1,0.28+Math.random()*0.12),
-    });
-    const geo = new THREE.BoxGeometry(w, h, 1.2+Math.random()*2);
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(x+ox, y+h*0.5, z);
-    m.rotation.y = (-0.2+Math.random()*0.4);
-    m.castShadow = true; m.receiveShadow = true;
-    scene.add(m);
-    // Rocas caídas al pie (usamos y base ya que ground se asigna después)
-    for(let j=0;j<3;j++){
-      const rx=x+ox+(-3+Math.random()*6), rz=z+(1+Math.random()*4);
-      const rs=0.3+Math.random()*1.2;
-      addRock(rx,y,rz,rs,rs*(0.4+Math.random()*0.8));
-    }
-  }
-}
-
-// ── Vena de cuarzo expuesta ────────────────────────────
-function addQuartzVein(x, y, z) {
-  const len = 4+Math.random()*12;
-  const mat = new THREE.MeshStandardMaterial({
-    map: TEX.quartz, roughness:0.4, metalness:0.15,
-    color: new THREE.Color(0xf0ebe0),
+// ── Shale outcrop (non-box, layered) ─────────────────────
+function addShaleOutcrop(x,y,z){
+  const w=4+Math.random()*9, d=2.5+Math.random()*6;
+  const layers=3+Math.floor(Math.random()*4);
+  const mat=new THREE.MeshStandardMaterial({
+    map:TEX.shale,
+    normalMap:TEX.shaleN,
+    normalScale:new THREE.Vector2(1.2,0.3),
+    roughness:0.88,
+    metalness:0.01,
+    color:new THREE.Color().setHSL(0.07,0.12,0.28+Math.random()*0.12),
   });
-  const geo = new THREE.BoxGeometry(len, 0.15+Math.random()*0.35, 0.3+Math.random()*0.5);
-  const m = new THREE.Mesh(geo, mat);
-  m.position.set(x, y+0.1, z);
-  m.rotation.y = Math.random()*Math.PI;
-  m.castShadow = true;
-  scene.add(m);
-  // Mineralización puntual (pequeños cristales)
-  for(let i=0;i<5;i++){
-    const cx = x+(-len/2+Math.random()*len), cz = z+(-0.4+Math.random()*0.8);
-    const sg = new THREE.OctahedronGeometry(0.06+Math.random()*0.12, 0);
-    const sm = new THREE.MeshStandardMaterial({color:0xf8f5ee, roughness:0.1, metalness:0.05});
-    const s = new THREE.Mesh(sg, sm);
-    s.position.set(cx, y+0.18+Math.random()*0.08, cz);
-    s.rotation.set(Math.random(),Math.random(),Math.random());
-    scene.add(s);
-  }
-  if(len>7){
-    m.userData = {type:'rock', prompt:'[ E ] Muestrear vena de cuarzo', id:'quartz_'+Math.floor(x)};
-    interactables.push(m);
-  }
-}
-
-// ── Talud de detritos (scree slope) ───────────────────
-function addScreeSlope(x, y, z, radius) {
-  const mat = new THREE.MeshStandardMaterial({map:TEX.scree, roughness:0.96, metalness:0});
-  const geo = new THREE.CylinderGeometry(radius, radius*1.3, 0.4, 12);
-  const m = new THREE.Mesh(geo, mat);
-  m.position.set(x, y+0.18, z);
-  m.rotation.y = Math.random()*Math.PI;
-  m.receiveShadow = true;
-  scene.add(m);
-  // Bloques dispersos sobre el talud (usamos y ya que ground puede no estar aún)
-  for(let i=0;i<18;i++){
-    const a = Math.random()*Math.PI*2, r = Math.random()*radius;
-    const bx=x+Math.cos(a)*r, bz=z+Math.sin(a)*r;
-    const bs=0.15+Math.random()*0.8;
-    addRock(bx,y+bs*0.3,bz, bs, bs*(0.3+Math.random()*0.6));
-  }
-}
-
-// ── Lecho de quebrada seco ─────────────────────────────
-function addDryCreekBed(groundMesh) {
-  const mat = new THREE.MeshStandardMaterial({map:TEX.gravel, roughness:0.97, metalness:0});
-  // Tramo sinuoso de la quebrada
-  const pts = [];
-  let cx=-60, cz=-40;
-  for(let i=0;i<12;i++){
-    cx+=10+Math.random()*12; cz+=(-8+Math.random()*16);
-    const gy=getTerrainY(cx,cz,groundMesh)||0;
-    pts.push(new THREE.Vector3(cx, gy+0.05, cz));
-  }
-  for(let i=0;i<pts.length-1;i++){
-    const p=pts[i], n=pts[i+1];
-    const dx=n.x-p.x, dz=n.z-p.z;
-    const len=Math.sqrt(dx*dx+dz*dz);
-    const mx=(p.x+n.x)/2, mz=(p.z+n.z)/2;
-    const gy=getTerrainY(mx,mz,groundMesh)||0;
-    const w=1.5+Math.random()*2;
-    const geo=new THREE.BoxGeometry(len, 0.06, w);
-    const seg=new THREE.Mesh(geo, mat);
-    seg.position.set(mx, gy+0.04, mz);
-    seg.rotation.y=Math.atan2(dz,dx);
-    seg.receiveShadow=true;
-    scene.add(seg);
-    // Cantos rodados en el lecho
-    for(let j=0;j<4;j++){
-      const bx=mx+(-w/2+Math.random()*w), bz=mz+(-w/2+Math.random()*w);
-      const bs=0.1+Math.random()*0.35;
-      const bg=new THREE.SphereGeometry(bs,5,4);
-      const bm=new THREE.MeshStandardMaterial({map:TEX.rock,roughness:0.88,metalness:0});
-      const bobj=new THREE.Mesh(bg,bm);
-      bobj.position.set(bx,gy+bs*0.4,bz);
-      bobj.rotation.set(Math.random(),Math.random(),Math.random());
-      scene.add(bobj);
+  for(let l=0;l<layers;l++){
+    const lw=w*(0.7+Math.random()*0.4), lh=0.18+Math.random()*0.35, ld=d*(0.7+Math.random()*0.4);
+    const geo=new THREE.BoxGeometry(lw,lh,ld);
+    // Slightly displace corners for organic look
+    displaceGeo(geo,0.04);
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(x+(-0.3+Math.random()*0.6),y+lh/2+l*(0.2+Math.random()*0.18),z+(-0.3+Math.random()*0.6));
+    m.rotation.y=Math.random()*0.4;
+    m.castShadow=true; m.receiveShadow=true;
+    scene.add(m);
+    if(l===0&&lw>5){
+      m.userData={type:'rock',prompt:'[ E ] Muestrear pelita negra (Fm. Vaca Muerta)',id:'shale_'+Math.floor(x)+'_'+Math.floor(z)};
+      interactables.push(m);
     }
   }
 }
 
-// ── Arbustos andinos (puna/prepuna) ───────────────────
-function addAndeanShrub(x, y, z) {
-  const h=0.3+Math.random()*0.7;
-  // Ramitas
-  const stemM=new THREE.MeshStandardMaterial({color:0x5a3a1a,roughness:1,metalness:0});
-  const stemG=new THREE.CylinderGeometry(0.02,0.04,h,5);
-  const stem=new THREE.Mesh(stemG,stemM);
-  stem.position.set(x,y+h*0.5,z); stem.castShadow=true; scene.add(stem);
-  // Follaje
-  const hue=0.15+Math.random()*0.12; // amarillo-verde seco
-  const leafM=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(hue,0.5,0.2+Math.random()*0.15),roughness:1,metalness:0});
-  for(let i=0;i<3+Math.floor(Math.random()*3);i++){
-    const a=Math.random()*Math.PI*2, r=0.15+Math.random()*0.3;
-    const lg=new THREE.SphereGeometry(0.12+Math.random()*0.18,4,3);
-    const lm=new THREE.Mesh(lg,leafM);
-    lm.position.set(x+Math.cos(a)*r,y+h*(0.5+Math.random()*0.6),z+Math.sin(a)*r);
-    lm.scale.set(1,0.5+Math.random()*0.5,1);
-    lm.castShadow=true; scene.add(lm);
-  }
-}
-
-// ── Queñoa (árbol andino, Polylepis) ──────────────────
-function addQueñoa(x, y, z) {
-  const h=1.5+Math.random()*2;
-  const trunkM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.95,metalness:0,color:0x6b3a1a});
-  const trunkG=new THREE.CylinderGeometry(0.06,0.1,h,6);
-  const trunk=new THREE.Mesh(trunkG,trunkM);
-  trunk.position.set(x,y+h*0.5,z); trunk.castShadow=true; scene.add(trunk);
-  // Canopy irregular (varias esferas pequeñas)
-  const canopyM=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(0.25+Math.random()*0.06,0.4,0.2+Math.random()*0.1),roughness:1,metalness:0});
-  const nballs=5+Math.floor(Math.random()*6);
-  for(let i=0;i<nballs;i++){
-    const a=Math.random()*Math.PI*2, r=0.3+Math.random()*0.6;
-    const bs=0.3+Math.random()*0.5;
-    const bg=new THREE.SphereGeometry(bs,6,5);
-    const bm=new THREE.Mesh(bg,canopyM);
-    bm.position.set(x+Math.cos(a)*r,y+h+Math.random()*0.8,z+Math.sin(a)*r);
-    bm.castShadow=true; scene.add(bm);
-  }
-}
-
-// ── Jalón topográfico / estaca de campo ───────────────
-function addFieldMarker(x, y, z, label) {
-  const poleM=new THREE.MeshStandardMaterial({color:0xee2222,roughness:0.6,metalness:0.3});
-  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.8,6),poleM);
-  pole.position.set(x,y+0.9,z); scene.add(pole);
-  // Banderín naranja
-  const flagM=new THREE.MeshStandardMaterial({color:0xff6600,roughness:0.8,metalness:0,side:THREE.DoubleSide});
-  const flagG=new THREE.PlaneGeometry(0.35,0.22);
-  const flag=new THREE.Mesh(flagG,flagM);
-  flag.position.set(x+0.17,y+1.75,z); flag.rotation.y=Math.random()*0.6; scene.add(flag);
-}
-
-// ── Crestón de arenisca (steppe sandstone ridge) ──────
-function addSandstoneCrest(x, y, z, len) {
-  const mat=new THREE.MeshStandardMaterial({map:TEX.cliff,roughness:0.85,metalness:0.02,color:new THREE.Color().setHSL(0.08,0.25,0.45+Math.random()*0.1)});
-  const segs=Math.floor(len/3);
-  const angle=Math.PI*(0.55+Math.random()*0.3); // NNO orientación típica
+// ── Sandstone ridge ───────────────────────────────────────
+function addSandstoneRidge(x,y,z,len){
+  const mat=new THREE.MeshStandardMaterial({
+    map:TEX.rock,
+    roughness:0.82, metalness:0.02,
+    color:new THREE.Color().setHSL(0.08,0.22,0.48+Math.random()*0.1),
+  });
+  const angle=Math.PI*(0.5+Math.random()*0.3);
+  const segs=Math.floor(len/3.5);
   for(let i=0;i<segs;i++){
     const t=(i/segs-0.5)*len;
     const cx=x+Math.cos(angle)*t+(-2+Math.random()*4);
     const cz=z+Math.sin(angle)*t+(-2+Math.random()*4);
-    const gy=y;
-    const h=0.4+Math.random()*1.8;
-    const w=1.2+Math.random()*2.5, d=0.4+Math.random()*0.8;
-    const geo=new THREE.BoxGeometry(w,h,d);
+    const h=0.5+Math.random()*2.2;
+    const geo=new THREE.IcosahedronGeometry(h*0.6,1);
+    displaceGeo(geo,0.18);
     const m=new THREE.Mesh(geo,mat);
-    m.position.set(cx,gy+h*0.5,cz);
+    m.position.set(cx,y+h*0.45,cz);
+    m.scale.set(1.6,1,0.7);
     m.rotation.y=angle+(-0.3+Math.random()*0.6);
     m.castShadow=true; m.receiveShadow=true;
     scene.add(m);
   }
 }
 
-// ── Parche de caliche ─────────────────────────────────
-function addCalichePatch(x, y, z) {
-  const r=3+Math.random()*8;
-  const mat=new THREE.MeshStandardMaterial({map:TEX.caliche,roughness:0.96,metalness:0,color:new THREE.Color(0xe8dfc8)});
-  const geo=new THREE.CylinderGeometry(r,r*1.1,0.12,10);
-  const m=new THREE.Mesh(geo,mat);
-  m.position.set(x,y+0.07,z);
-  m.rotation.y=Math.random()*Math.PI;
-  m.receiveShadow=true;
-  scene.add(m);
-}
-
-// ── Cañadón (pequeño cañón de la estepa) ──────────────
-function addCanyon(groundMesh, x, z, length, width) {
-  // Paredes del cañadón con material de pelita
-  const wallMat=new THREE.MeshStandardMaterial({map:TEX.shale,roughness:0.88,metalness:0.01,color:new THREE.Color().setHSL(0.07,0.18,0.32)});
-  const steps=Math.floor(Math.abs(length)/8);
-  for(let i=0;i<steps;i++){
-    const t=i/steps;
-    const cx=x, cz_seg=z+length*t;
-    const gy=getTerrainY(cx,cz_seg,groundMesh)||0;
-    // Pared izquierda
-    const lw=new THREE.Mesh(new THREE.BoxGeometry(0.8+Math.random()*1.2,2+Math.random()*3,8),wallMat);
-    lw.position.set(cx-width/2,gy+1.5,cz_seg); lw.castShadow=true; scene.add(lw);
-    // Pared derecha
-    const rw=new THREE.Mesh(new THREE.BoxGeometry(0.8+Math.random()*1.2,2+Math.random()*3,8),wallMat);
-    rw.position.set(cx+width/2,gy+1.5,cz_seg); rw.castShadow=true; scene.add(rw);
-    // Fondo de cañadón con grava
-    const floor=new THREE.Mesh(new THREE.BoxGeometry(width,0.1,8),new THREE.MeshStandardMaterial({map:TEX.gravel,roughness:0.96,metalness:0}));
-    floor.position.set(cx,gy+0.05,cz_seg); floor.receiveShadow=true; scene.add(floor);
+// ── Cliff face ───────────────────────────────────────────
+function addCliffFace(x,y,z,width,height){
+  const mat=new THREE.MeshStandardMaterial({
+    map:TEX.rock,
+    normalMap:TEX.rockN,
+    normalScale:new THREE.Vector2(2,2),
+    roughness:0.93, metalness:0.02,
+    color:new THREE.Color().setHSL(0.07,0.1,0.26+Math.random()*0.1),
+  });
+  const segs=Math.floor(width/2.5);
+  for(let i=0;i<segs;i++){
+    const ox=(i/segs-0.5)*width;
+    const h=height*(0.55+Math.random()*0.9);
+    const geo=new THREE.IcosahedronGeometry(h*0.55,2);
+    displaceGeo(geo,0.12);
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(x+ox, y+h*0.52, z);
+    m.scale.set(1, 1, 0.55+Math.random()*0.35);
+    m.rotation.y=(-0.3+Math.random()*0.6);
+    m.castShadow=true; m.receiveShadow=true;
+    scene.add(m);
+    // Fallen rocks at base
+    for(let j=0;j<3;j++){
+      const rx=x+ox+(-3+Math.random()*6), rz=z+(1+Math.random()*5);
+      const rs=0.2+Math.random()*1.1;
+      addRock(rx,y,rz,rs,rs*(0.3+Math.random()*0.7));
+    }
   }
 }
 
-// ── Mata de coirón (gramínea dura patagónica) ─────────
-function addCoiron(x, y, z) {
-  const h=0.25+Math.random()*0.5;
-  const r=0.12+Math.random()*0.25;
-  const mat=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(0.12+Math.random()*0.05,0.45,0.28+Math.random()*0.1),roughness:1,metalness:0});
-  // Tallo central
-  const sg=new THREE.ConeGeometry(r*0.2,h,5);
-  const s=new THREE.Mesh(sg,mat);
-  s.position.set(x,y+h*0.5,z); scene.add(s);
-  // Hojas en abanico
-  for(let i=0;i<8;i++){
-    const a=(i/8)*Math.PI*2;
-    const lg=new THREE.CylinderGeometry(0.01,0.02,h*(0.7+Math.random()*0.5),3);
-    const lm=new THREE.Mesh(lg,mat);
-    lm.position.set(x+Math.cos(a)*r*0.5,y+h*0.35,z+Math.sin(a)*r*0.5);
-    lm.rotation.z=Math.cos(a)*0.4; lm.rotation.x=Math.sin(a)*0.4;
-    scene.add(lm);
+// ── Quartz vein ──────────────────────────────────────────
+function addQuartzVein(x,y,z){
+  const len=5+Math.random()*14;
+  const mat=new THREE.MeshStandardMaterial({
+    roughness:0.35, metalness:0.08,
+    color:new THREE.Color(0xf2eeea),
+  });
+  // Wavy vein with multiple segments
+  const segs=Math.floor(len/2);
+  const angle=Math.random()*Math.PI;
+  for(let i=0;i<segs;i++){
+    const t=(i/segs-0.5)*len;
+    const ox=Math.sin(i*1.3)*0.3, oz=Math.cos(i*0.9)*0.25;
+    const sx=x+Math.cos(angle)*t+ox, sz=z+Math.sin(angle)*t+oz;
+    const geo=new THREE.IcosahedronGeometry(0.12+Math.random()*0.2,1);
+    displaceGeo(geo,0.25);
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(sx,y+0.08+Math.random()*0.06,sz);
+    m.castShadow=true;
+    scene.add(m);
   }
-}
-
-// ── Pileta de corte (cutting pit) ─────────────────────
-function addCuttingPit(groundMesh, x, z) {
-  const y=getTerrainY(x,z,groundMesh)||0;
-  const pitMat=new THREE.MeshStandardMaterial({color:0x3a3028,roughness:0.95,metalness:0});
-  // Borde de la pileta
-  const rim=new THREE.Mesh(new THREE.BoxGeometry(6,0.3,6),new THREE.MeshStandardMaterial({color:0x888880,roughness:0.8,metalness:0.1}));
-  rim.position.set(x,y+0.15,z); scene.add(rim);
-  // Líquido oscuro (corte de perforación)
-  const liq=new THREE.Mesh(new THREE.BoxGeometry(5.4,0.05,5.4),new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.2,metalness:0.1}));
-  liq.position.set(x,y+0.22,z); scene.add(liq);
-  // Etiqueta interactiva
-  const trig=new THREE.Mesh(new THREE.BoxGeometry(6,1.5,6),new THREE.MeshBasicMaterial({visible:false}));
-  trig.position.set(x,y+0.75,z);
-  trig.userData={type:'cuttingpit',prompt:'[ E ] Tomar muestra de cutting',id:'cuttingpit'};
+  // Invisible trigger
+  const trig=new THREE.Mesh(new THREE.BoxGeometry(len,0.5,2),new THREE.MeshBasicMaterial({visible:false}));
+  trig.position.set(x,y+0.25,z); trig.rotation.y=angle;
+  trig.userData={type:'rock',prompt:'[ E ] Muestrear vena de cuarzo',id:'qtz_'+Math.floor(x)+'_'+Math.floor(z)};
   scene.add(trig); interactables.push(trig);
 }
 
-// ── Tendido eléctrico (baja tensión) ──────────────────
-function addPowerLine(groundMesh, x1, z1, x2, z2) {
-  const poleMat=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.85,metalness:0,color:0x5a3a18});
-  const wireMat=new THREE.MeshStandardMaterial({color:0x222222,roughness:0.7,metalness:0.6});
+// ── Andean shrub ─────────────────────────────────────────
+function addAndeanShrub(x,y,z){
+  const h=0.28+Math.random()*0.65;
+  const stemM=new THREE.MeshStandardMaterial({color:0x4a3218,roughness:1,metalness:0});
+  const stemGeo=new THREE.CylinderGeometry(0.018,0.028,h,5);
+  displaceGeo(stemGeo,0.05);
+  const stem=new THREE.Mesh(stemGeo,stemM);
+  stem.position.set(x,y+h*0.5,z); scene.add(stem);
+
+  const leafM=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(0.13+Math.random()*0.1,0.5,0.18+Math.random()*0.12),roughness:1,metalness:0});
+  const nballs=4+Math.floor(Math.random()*5);
+  for(let i=0;i<nballs;i++){
+    const a=Math.random()*Math.PI*2, r=0.12+Math.random()*0.28, bs=0.1+Math.random()*0.18;
+    const geo=new THREE.IcosahedronGeometry(bs,1); displaceGeo(geo,0.2);
+    const m=new THREE.Mesh(geo,leafM);
+    m.position.set(x+Math.cos(a)*r, y+h*(0.55+Math.random()*0.55), z+Math.sin(a)*r);
+    m.castShadow=true; scene.add(m);
+  }
+}
+
+// ── Queñoa tree ──────────────────────────────────────────
+function addQueñoa(x,y,z){
+  const h=1.8+Math.random()*2.5;
+  const trunkM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.95,metalness:0,color:0x5a3210});
+  const trunkGeo=new THREE.CylinderGeometry(0.055,0.09,h,7);
+  displaceGeo(trunkGeo,0.06);
+  const trunk=new THREE.Mesh(trunkGeo,trunkM);
+  trunk.position.set(x,y+h*0.5,z); trunk.castShadow=true; scene.add(trunk);
+
+  const canopyM=new THREE.MeshStandardMaterial({
+    color:new THREE.Color().setHSL(0.23+Math.random()*0.07,0.45,0.18+Math.random()*0.12),roughness:1,metalness:0});
+  const nb=6+Math.floor(Math.random()*7);
+  for(let i=0;i<nb;i++){
+    const a=Math.random()*Math.PI*2, r=0.28+Math.random()*0.7, bs=0.28+Math.random()*0.55;
+    const geo=new THREE.IcosahedronGeometry(bs,1); displaceGeo(geo,0.22);
+    const m=new THREE.Mesh(geo,canopyM);
+    m.position.set(x+Math.cos(a)*r, y+h+(-0.1+Math.random()*0.8), z+Math.sin(a)*r);
+    m.castShadow=true; scene.add(m);
+  }
+}
+
+// ── Dry stream bed ───────────────────────────────────────
+function addDryStreamBed(ground){
+  const mat=new THREE.MeshStandardMaterial({
+    roughness:0.96, metalness:0,
+    color:new THREE.Color().setHSL(0.08,0.15,0.52),
+  });
+  let cx=-65, cz=-45;
+  for(let i=0;i<14;i++){
+    cx+=9+Math.random()*11; cz+=(-8+Math.random()*16);
+    const nx=cx+(9+Math.random()*11), nz=cz+(-8+Math.random()*16);
+    const gy=getTerrainY((cx+nx)/2,(cz+nz)/2,ground)||0;
+    const dx=nx-cx, dz=nz-cz, len=Math.sqrt(dx*dx+dz*dz);
+    const geo=new THREE.BoxGeometry(len,0.05,1.8+Math.random()*1.5);
+    displaceGeo(geo,0.04);
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set((cx+nx)/2,gy+0.04,(cz+nz)/2);
+    m.rotation.y=Math.atan2(dz,dx);
+    m.receiveShadow=true; scene.add(m);
+    // Pebbles
+    for(let p=0;p<5;p++){
+      const pgeo=new THREE.IcosahedronGeometry(0.08+Math.random()*0.2,0); displaceGeo(pgeo,0.15);
+      const pm=new THREE.Mesh(pgeo,mat);
+      pm.position.set(cx+Math.random()*(nx-cx),gy+0.1,cz+Math.random()*(nz-cz));
+      pm.rotation.set(Math.random(),Math.random(),Math.random());
+      scene.add(pm);
+    }
+  }
+}
+
+// ── Field marker (stake) ─────────────────────────────────
+function addFieldMarker(x,y,z,label){
+  const poleM=new THREE.MeshStandardMaterial({color:0xdd2020,roughness:0.6,metalness:0.35});
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,1.85,6),poleM);
+  pole.position.set(x,y+0.925,z); pole.castShadow=true; scene.add(pole);
+  const flagM=new THREE.MeshStandardMaterial({color:0xff6600,roughness:0.85,metalness:0,side:THREE.DoubleSide});
+  const flag=new THREE.Mesh(new THREE.PlaneGeometry(0.32,0.2),flagM);
+  flag.position.set(x+0.16,y+1.8,z); flag.rotation.y=(-0.3+Math.random()*0.6); scene.add(flag);
+}
+
+// ── Patagonian bush ──────────────────────────────────────
+function addPatagonianBush(x,y,z){
+  const r=0.25+Math.random()*0.55;
+  const geo=new THREE.IcosahedronGeometry(r,1);
+  displaceGeo(geo,0.25);
+  const hue=0.18+Math.random()*0.12;
+  const mat=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(hue,0.38,0.2+Math.random()*0.14),roughness:1,metalness:0});
+  const m=new THREE.Mesh(geo,mat);
+  m.position.set(x,y+r*0.6,z); m.scale.set(1,0.65,1); m.castShadow=true; scene.add(m);
+}
+
+// ── Coirón grass tuft ────────────────────────────────────
+function addCoiron(x,y,z){
+  const h=0.22+Math.random()*0.48, r=0.1+Math.random()*0.22;
+  const mat=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(0.1+Math.random()*0.06,0.42,0.26+Math.random()*0.12),roughness:1,metalness:0});
+  // Dome base
+  const base=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),mat);
+  base.position.set(x,y+r*0.5,z); base.scale.set(1,0.55,1); scene.add(base);
+  // Blades
+  const nb=6+Math.floor(Math.random()*6);
+  for(let i=0;i<nb;i++){
+    const a=(i/nb)*Math.PI*2;
+    const blade=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.014,h*(0.7+Math.random()*0.5),3),mat);
+    blade.position.set(x+Math.cos(a)*r*0.5,y+h*0.4,z+Math.sin(a)*r*0.5);
+    blade.rotation.z=Math.cos(a)*0.45; blade.rotation.x=Math.sin(a)*0.45;
+    scene.add(blade);
+  }
+}
+
+// ── Canyon walls ─────────────────────────────────────────
+function addCanyon(ground,x,z,length,width){
+  const wallMat=new THREE.MeshStandardMaterial({
+    map:TEX.shale,
+    normalMap:TEX.shaleN,
+    normalScale:new THREE.Vector2(1.5,0.4),
+    roughness:0.88, metalness:0.01,
+    color:new THREE.Color().setHSL(0.07,0.18,0.30),
+  });
+  const steps=Math.floor(Math.abs(length)/7);
+  for(let i=0;i<steps;i++){
+    const t=i/steps;
+    const cz=z+length*t;
+    const gy=getTerrainY(x,cz,ground)||0;
+    // Left wall — organic shape
+    const lh=1.8+Math.random()*2.8;
+    const lgeo=new THREE.IcosahedronGeometry(lh*0.5,2); displaceGeo(lgeo,0.12);
+    const lw=new THREE.Mesh(lgeo,wallMat);
+    lw.position.set(x-width/2,gy+lh*0.5,cz);
+    lw.scale.set(0.5,1,1.2); lw.castShadow=true; scene.add(lw);
+    // Right wall
+    const rh=1.8+Math.random()*2.8;
+    const rgeo=new THREE.IcosahedronGeometry(rh*0.5,2); displaceGeo(rgeo,0.12);
+    const rw=new THREE.Mesh(rgeo,wallMat);
+    rw.position.set(x+width/2,gy+rh*0.5,cz);
+    rw.scale.set(0.5,1,1.2); rw.castShadow=true; scene.add(rw);
+  }
+}
+
+// ── Cutting pit ──────────────────────────────────────────
+function addCuttingPit(ground,x,z){
+  const y=getTerrainY(x,z,ground)||0;
+  const rimMat=new THREE.MeshStandardMaterial({map:TEX.concrete,roughness:0.88,metalness:0.08});
+  // Rim (ring of segments)
+  for(let i=0;i<8;i++){
+    const a=(i/8)*Math.PI*2;
+    const geo=new THREE.BoxGeometry(1.5,0.28,0.28); displaceGeo(geo,0.04);
+    const m=new THREE.Mesh(geo,rimMat);
+    m.position.set(x+Math.cos(a)*3,y+0.14,z+Math.sin(a)*3);
+    m.rotation.y=a; scene.add(m);
+  }
+  // Liquid surface
+  const liq=new THREE.Mesh(
+    new THREE.CylinderGeometry(2.6,2.6,0.05,16),
+    new THREE.MeshStandardMaterial({color:0x100c05,roughness:0.05,metalness:0.2})
+  );
+  liq.position.set(x,y+0.2,z); scene.add(liq);
+  // Trigger
+  const trig=new THREE.Mesh(new THREE.CylinderGeometry(3.5,3.5,1,12),new THREE.MeshBasicMaterial({visible:false}));
+  trig.position.set(x,y+0.5,z);
+  trig.userData={type:'cuttingpit',prompt:'[ E ] Tomar muestra de cutting',id:'pit_'+Math.floor(x)};
+  scene.add(trig); interactables.push(trig);
+}
+
+// ── Well marker ──────────────────────────────────────────
+function addWellMarker(x,y,z){
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,1.6,7),
+    new THREE.MeshStandardMaterial({color:0xeecc00,roughness:0.6,metalness:0.2}));
+  post.position.set(x+9,y+0.8,z+9); post.castShadow=true; scene.add(post);
+  const sign=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.55,0.06),
+    new THREE.MeshStandardMaterial({color:0x1144aa,roughness:0.65}));
+  sign.position.set(x+9,y+1.72,z+9); scene.add(sign);
+}
+
+// ── Access road ──────────────────────────────────────────
+function addAccessRoad(ground){
+  const mat=new THREE.MeshStandardMaterial({roughness:0.93,metalness:0,color:new THREE.Color(0xb0a070)});
+  const pts=[{x:0,z:-28},{x:6,z:-16},{x:12,z:-6},{x:20,z:6},{x:27,z:18},{x:32,z:28}];
+  for(let i=0;i<pts.length-1;i++){
+    const a=pts[i],b=pts[i+1];
+    const dx=b.x-a.x,dz=b.z-a.z,len=Math.sqrt(dx*dx+dz*dz);
+    const mx=(a.x+b.x)/2,mz=(a.z+b.z)/2;
+    const gy=getTerrainY(mx,mz,ground)||0;
+    const geo=new THREE.BoxGeometry(len,0.07,3.5); displaceGeo(geo,0.02);
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(mx,gy+0.03,mz); m.rotation.y=Math.atan2(dz,dx);
+    m.receiveShadow=true; scene.add(m);
+  }
+}
+
+// ── Power line ───────────────────────────────────────────
+function addPowerLine(ground,x1,z1,x2,z2){
+  const poleMat=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.88,metalness:0,color:0x5a3818});
+  const wireMat=new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:0.7,metalness:0.7});
   const steps=4;
   const poles=[];
   for(let i=0;i<=steps;i++){
     const t=i/steps;
     const px=x1+(x2-x1)*t, pz=z1+(z2-z1)*t;
-    const py=getTerrainY(px,pz,groundMesh)||0;
-    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,5,6),poleMat);
-    pole.position.set(px,py+2.5,pz); pole.castShadow=true; scene.add(pole);
-    // Cruceta
-    const cross=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.1,0.1),poleMat);
-    cross.position.set(px,py+5.1,pz); scene.add(cross);
-    poles.push({x:px,y:py+5,z:pz});
+    const py=getTerrainY(px,pz,ground)||0;
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.085,5.5,7),poleMat);
+    pole.position.set(px,py+2.75,pz); pole.castShadow=true; scene.add(pole);
+    const cross=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.09,0.09),poleMat);
+    cross.position.set(px,py+5.4,pz); scene.add(cross);
+    poles.push({x:px,y:py+5.2,z:pz});
   }
-  // Cables (líneas entre postes)
   for(let i=0;i<poles.length-1;i++){
-    const a=poles[i], b=poles[i+1];
-    const dx=b.x-a.x, dz=b.z-a.z;
-    const len=Math.sqrt(dx*dx+dz*dz);
-    const wire=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,len,4),wireMat);
-    wire.position.set((a.x+b.x)/2,(a.y+b.y)/2-0.3,(a.z+b.z)/2);
+    const a=poles[i],b=poles[i+1];
+    const dx=b.x-a.x,dz=b.z-a.z,len=Math.sqrt(dx*dx+dz*dz);
+    const wire=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,len,4),wireMat);
+    wire.position.set((a.x+b.x)/2,(a.y+b.y)/2-0.4,(a.z+b.z)/2);
     wire.rotation.z=Math.PI/2; wire.rotation.y=Math.atan2(dz,dx);
     scene.add(wire);
   }
 }
 
-// ── Mojón identificador de pozo ───────────────────────
-function addWellMarker(x, y, z) {
-  const mat=new THREE.MeshStandardMaterial({color:0xeeee00,roughness:0.6,metalness:0.2});
-  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,1.5,6),mat);
-  post.position.set(x+8,y+0.75,z+8); scene.add(post);
-  const sign=new THREE.Mesh(new THREE.BoxGeometry(1,0.6,0.06),new THREE.MeshStandardMaterial({color:0x1144aa,roughness:0.6}));
-  sign.position.set(x+8,y+1.7,z+8); scene.add(sign);
-}
-
-// ── Camino de ripio (acceso al pozo) ──────────────────
-function addAccessRoad(groundMesh) {
-  const mat=new THREE.MeshStandardMaterial({map:TEX.gravel,roughness:0.94,metalness:0,color:new THREE.Color(0xb8a888)});
-  // Trayecto recto desde el campamento al pozo
-  const pts=[
-    {x:0,z:-25},{x:5,z:-15},{x:10,z:-5},{x:18,z:5},{x:25,z:18},{x:30,z:28}
-  ];
-  for(let i=0;i<pts.length-1;i++){
-    const a=pts[i], b=pts[i+1];
-    const dx=b.x-a.x, dz=b.z-a.z;
-    const len=Math.sqrt(dx*dx+dz*dz);
-    const mx=(a.x+b.x)/2, mz=(a.z+b.z)/2;
-    const gy=getTerrainY(mx,mz,groundMesh)||0;
-    const geo=new THREE.BoxGeometry(len, 0.08, 3.2);
-    const seg=new THREE.Mesh(geo,mat);
-    seg.position.set(mx,gy+0.04,mz);
-    seg.rotation.y=Math.atan2(dz,dx);
-    seg.receiveShadow=true;
-    scene.add(seg);
-  }
-}
-
-function addBush(x,y,z){
-  const r=0.3+Math.random()*0.5;
-  const geo=new THREE.SphereGeometry(r,5,4);
-  const pos=geo.attributes.position;
-  for(let i=0;i<pos.count;i++){
-    pos.setX(i,pos.getX(i)*(0.8+Math.random()*0.4));
-    pos.setZ(i,pos.getZ(i)*(0.8+Math.random()*0.4));
-  }
-  geo.computeVertexNormals();
-  const hue=0.2+Math.random()*0.1;
-  const mat=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(hue,0.4,0.25+Math.random()*0.15),roughness:1,metalness:0});
-  const m=new THREE.Mesh(geo,mat);
-  m.position.set(x,y+r*0.5,z);
-  m.scale.set(1,0.6,1);
-  m.castShadow=true;
-  scene.add(m);
-}
-
+// ── Mine shaft ───────────────────────────────────────────
 function addMineShaft(x,y,z){
-  // Timber beams with real wood texture
-  const beamMat=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.85,metalness:0});
-  [[-1.2,0],[1.2,0]].forEach(([ox])=>{
-    const b=new THREE.Mesh(new THREE.BoxGeometry(0.22,4.2,0.22),beamMat);
-    b.position.set(x+ox,y+2.1,z); b.castShadow=true; scene.add(b);
+  const beamM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.88,metalness:0});
+  const stoneM=new THREE.MeshStandardMaterial({map:TEX.rock,roughness:0.92,metalness:0.02,color:0x887766});
+  const steelM=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.55,metalness:0.85});
+  // Vertical beams
+  [[-1.25,0],[1.25,0]].forEach(([ox])=>{
+    const geo=new THREE.CylinderGeometry(0.1,0.12,4.5,7); displaceGeo(geo,0.04);
+    const b=new THREE.Mesh(geo,beamM); b.position.set(x+ox,y+2.25,z); b.castShadow=true; scene.add(b);
   });
-  const top=new THREE.Mesh(new THREE.BoxGeometry(2.7,0.22,0.22),beamMat);
-  top.position.set(x,y+4.3,z); scene.add(top);
+  // Lintel
+  const lintel=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.2,0.2),beamM);
+  lintel.position.set(x,y+4.6,z); scene.add(lintel);
   // Diagonal braces
-  [[- 1.2,0.8,2.8],[1.2,0.8,2.8]].forEach(([ox,oy,oh])=>{
-    const b=new THREE.Mesh(new THREE.BoxGeometry(0.15,oh,0.15),beamMat);
-    b.position.set(x+ox,y+oy,z); b.rotation.z=ox<0?0.5:-0.5; scene.add(b);
+  [[-1.25,0.8],[1.25,0.8]].forEach(([ox,oy])=>{
+    const geo=new THREE.CylinderGeometry(0.08,0.09,3.2,6);
+    const b=new THREE.Mesh(geo,beamM); b.position.set(x+ox,y+oy,z);
+    b.rotation.z=ox<0?0.55:-0.55; scene.add(b);
   });
-  // Dark entrance
-  const ent=new THREE.Mesh(new THREE.BoxGeometry(2.1,2.6,1.2),new THREE.MeshStandardMaterial({color:0x080808,roughness:1}));
-  ent.position.set(x,y+1.3,z); scene.add(ent);
-  // Stone surround
-  const stoneMat=new THREE.MeshStandardMaterial({map:TEX.cliff,roughness:0.9,metalness:0,color:0x998877});
-  [-1.2,1.2].forEach(ox=>{
-    const s=new THREE.Mesh(new THREE.BoxGeometry(0.4,2.8,0.6),stoneMat);
-    s.position.set(x+ox,y+1.4,z-0.05); scene.add(s);
+  // Entrance — dark void
+  const ent=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.8,1.4),new THREE.MeshStandardMaterial({color:0x060606,roughness:1}));
+  ent.position.set(x,y+1.4,z); scene.add(ent);
+  // Stone surround — organic blocks
+  [-1.3,1.3].forEach(ox=>{
+    const geo=new THREE.IcosahedronGeometry(0.7,1); displaceGeo(geo,0.1);
+    const s=new THREE.Mesh(geo,stoneM);
+    s.position.set(x+ox,y+1.5,z-0.1); s.scale.set(0.5,2.2,0.7); scene.add(s);
   });
-  // Ore cart / tracks
-  const trackMat=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.6,metalness:0.8,color:0x888888});
-  for(let t=-2;t<=2;t+=0.8){
-    const rail=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.8),trackMat);
-    rail.position.set(x-0.5,y+0.04,z+t); scene.add(rail);
-    const rail2=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.8),trackMat);
-    rail2.position.set(x+0.5,y+0.04,z+t); scene.add(rail2);
-    if(Math.abs(t)<0.05){
-      const tie=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.04,0.15),new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.9}));
+  // Rail tracks
+  for(let t=-2;t<=3;t+=0.75){
+    const rail1=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.055,0.75),steelM);
+    rail1.position.set(x-0.48,y+0.04,z+t); scene.add(rail1);
+    const rail2=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.055,0.75),steelM);
+    rail2.position.set(x+0.48,y+0.04,z+t); scene.add(rail2);
+    if(Math.abs(t%1.5)<0.1){
+      const tie=new THREE.Mesh(new THREE.BoxGeometry(1.15,0.04,0.14),beamM);
       tie.position.set(x,y+0.01,z+t); scene.add(tie);
     }
   }
+  // Ore cart
+  addOreCart(x,y+0.08,z+2.2);
   // Trigger
-  const trig=new THREE.Mesh(new THREE.BoxGeometry(3,3.5,2.5),new THREE.MeshBasicMaterial({visible:false}));
-  trig.position.set(x,y+1.75,z);
+  const trig=new THREE.Mesh(new THREE.BoxGeometry(4,4,3),new THREE.MeshBasicMaterial({visible:false}));
+  trig.position.set(x,y+2,z);
   trig.userData={type:'mineshaft',prompt:'[ E ] Entrar al socavón',id:'mineshaft'};
   scene.add(trig); interactables.push(trig);
 }
 
-function addOilRig(x,y,z){
-  const steelMat=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.5,metalness:0.8,color:0xbbbbbb});
-  const orangeMat=new THREE.MeshStandardMaterial({color:0xcc4400,roughness:0.6,metalness:0.4});
-  const yellowMat=new THREE.MeshStandardMaterial({color:0xeeaa00,roughness:0.6,metalness:0.3});
-  const darkMat=new THREE.MeshStandardMaterial({color:0x333333,roughness:0.7,metalness:0.6});
-
-  // Legs
-  [[-3,-3],[-3,3],[3,-3],[3,3]].forEach(([lx,lz])=>{
-    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,16,8),steelMat);
-    leg.position.set(x+lx,y+8,z+lz); leg.castShadow=true; scene.add(leg);
+function addOreCart(x,y,z){
+  const mat=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.65,metalness:0.7,color:0xaa8855});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.5,0.6),mat);
+  body.position.set(x,y+0.35,z); scene.add(body);
+  // Wheels
+  const wmat=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.5,metalness:0.9,color:0x666666});
+  [[-0.38,-0.25],[0.38,-0.25],[-0.38,0.25],[0.38,0.25]].forEach(([wx,wz])=>{
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.08,10),wmat);
+    w.rotation.z=Math.PI/2; w.position.set(x+wx,y+0.12,z+wz); scene.add(w);
   });
-  // Cross bracing
-  for(let h=2;h<=16;h+=3){
-    [[0,0],[Math.PI/2,0]].forEach(([ry])=>{
-      const b=new THREE.Mesh(new THREE.BoxGeometry(6.5,0.14,0.14),steelMat);
+}
+
+// ── Oil rig ───────────────────────────────────────────────
+function addOilRig(x,y,z){
+  const steelM=new THREE.MeshStandardMaterial({map:TEX.steel,roughness:0.5,metalness:0.82,color:0xbbbbbb});
+  const orangeM=new THREE.MeshStandardMaterial({color:0xcc4400,roughness:0.6,metalness:0.4});
+  const darkM=new THREE.MeshStandardMaterial({color:0x2a2a2a,roughness:0.7,metalness:0.7});
+  // 4 legs
+  [[-3,-3],[-3,3],[3,-3],[3,3]].forEach(([lx,lz])=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.15,18,8),steelM);
+    leg.position.set(x+lx,y+9,z+lz); leg.castShadow=true; scene.add(leg);
+  });
+  // Cross bracing every 3m
+  for(let h=2;h<=17;h+=3){
+    [[0],[Math.PI/2]].forEach(([ry])=>{
+      const b=new THREE.Mesh(new THREE.BoxGeometry(6.6,0.12,0.12),steelM);
       b.position.set(x,y+h,z); b.rotation.y=ry; scene.add(b);
     });
-    // Diagonal braces
-    const db=new THREE.Mesh(new THREE.BoxGeometry(0.1,3.5,0.1),steelMat);
-    db.position.set(x+2,y+h+1.5,z+2); db.rotation.z=0.4; db.rotation.x=0.4; scene.add(db);
+    const diag=new THREE.Mesh(new THREE.BoxGeometry(0.09,3.8,0.09),steelM);
+    diag.position.set(x+2,y+h+1.8,z+2); diag.rotation.z=0.42; diag.rotation.x=0.42; scene.add(diag);
   }
-  // Crown block
-  const crown=new THREE.Mesh(new THREE.BoxGeometry(7.5,0.6,7.5),orangeMat);
-  crown.position.set(x,y+16.3,z); crown.castShadow=true; scene.add(crown);
-  // Travelling block / hook
-  const block=new THREE.Mesh(new THREE.BoxGeometry(1,1.5,0.6),steelMat);
-  block.position.set(x,y+10,z); scene.add(block);
-  // Drill floor (grated)
-  const floor=new THREE.Mesh(new THREE.BoxGeometry(9,0.35,9),darkMat);
+  // Crown
+  const crown=new THREE.Mesh(new THREE.BoxGeometry(8,0.55,8),orangeM);
+  crown.position.set(x,y+18,z); crown.castShadow=true; scene.add(crown);
+  // Traveling block
+  const block=new THREE.Mesh(new THREE.BoxGeometry(1,1.6,0.65),steelM);
+  block.position.set(x,y+11,z); scene.add(block);
+  // Drill floor
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(10,0.35,10),darkM);
   floor.position.set(x,y+0.17,z); floor.receiveShadow=true; scene.add(floor);
   // Rotary table
-  const rt=new THREE.Mesh(new THREE.CylinderGeometry(1,1,0.5,12),new THREE.MeshStandardMaterial({color:0x222222,metalness:0.9,roughness:0.3}));
-  rt.position.set(x,y+0.5,z); scene.add(rt);
-  // Drill pipe (visible stub)
-  const pipe=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,4,8),steelMat);
-  pipe.position.set(x,y+2.5,z); scene.add(pipe);
-  // Dog house (driller cabin)
-  const cabinMat=new THREE.MeshStandardMaterial({color:0x445566,roughness:0.8,metalness:0.2});
-  const cabin=new THREE.Mesh(new THREE.BoxGeometry(3,2.5,3.5),cabinMat);
-  cabin.position.set(x+5,y+1.25,z); cabin.castShadow=true; scene.add(cabin);
-  const roofGeo=new THREE.ConeGeometry(2.5,1,4); roofGeo.rotateY(Math.PI/4);
-  const roof=new THREE.Mesh(roofGeo,new THREE.MeshStandardMaterial({color:0x334455,roughness:0.8}));
-  roof.position.set(x+5,y+3,z); scene.add(roof);
+  const rt=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.55,14),
+    new THREE.MeshStandardMaterial({color:0x1a1a1a,metalness:0.92,roughness:0.28}));
+  rt.position.set(x,y+0.52,z); scene.add(rt);
+  // Drill pipe
+  const pipe=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,4.5,8),steelM);
+  pipe.position.set(x,y+2.8,z); scene.add(pipe);
+  // Dog house
+  const cabinM=new THREE.MeshStandardMaterial({color:0x3a4a5a,roughness:0.82,metalness:0.2});
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(3.2,2.6,3.8),cabinM);
+  cabin.position.set(x+5.5,y+1.3,z); cabin.castShadow=true; scene.add(cabin);
+  const roofGeo=new THREE.ConeGeometry(2.6,1.1,4); roofGeo.rotateY(Math.PI/4);
+  const roof=new THREE.Mesh(roofGeo,new THREE.MeshStandardMaterial({color:0x2a3a48,roughness:0.85}));
+  roof.position.set(x+5.5,y+3.1,z); scene.add(roof);
   // Mud tanks
   [3,-3].forEach(oz=>{
-    const tank=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,3.5,12),new THREE.MeshStandardMaterial({color:0x446688,roughness:0.6,metalness:0.3}));
-    tank.position.set(x-6,y+1.75,z+oz); tank.castShadow=true; scene.add(tank);
+    const tank=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.3,3.8,14),
+      new THREE.MeshStandardMaterial({color:0x3a5570,roughness:0.6,metalness:0.35}));
+    tank.position.set(x-6.5,y+1.9,z+oz); tank.castShadow=true; scene.add(tank);
   });
   // Flare stack
-  const stack=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,8,8),steelMat);
-  stack.position.set(x-5,y+4,z-4); stack.castShadow=true; scene.add(stack);
-  const flareLight=new THREE.PointLight(0xff8800,2,10);
-  flareLight.position.set(x-5,y+8.5,z-4);
-  scene.add(flareLight);
-  state.flareLight=flareLight;
-  // Safety station (red box)
-  const safetyMat=new THREE.MeshStandardMaterial({color:0xee1111,roughness:0.6,metalness:0.2});
-  const safetyBox=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.3,0.45),safetyMat);
-  safetyBox.position.set(x-6,y+0.65,z+5);
+  const stack=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.14,9,8),steelM);
+  stack.position.set(x-5,y+4.5,z-5); stack.castShadow=true; scene.add(stack);
+  const flareL=new THREE.PointLight(0xff8800,2.2,12);
+  flareL.position.set(x-5,y+9.5,z-5); scene.add(flareL);
+  state.flareLight=flareL;
+  // Safety station
+  const safetyM=new THREE.MeshStandardMaterial({color:0xee1111,roughness:0.6,metalness:0.2});
+  const safetyBox=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,0.4),safetyM);
+  safetyBox.position.set(x-6.5,y+0.7,z+5.5);
   safetyBox.userData={type:'safety',prompt:'[ E ] Revisar EDP / MSDS',id:'safety'};
   scene.add(safetyBox); interactables.push(safetyBox);
-  // Main trigger
-  const trig=new THREE.Mesh(new THREE.BoxGeometry(10,17,10),new THREE.MeshBasicMaterial({visible:false}));
-  trig.position.set(x,y+8.5,z);
+  // Trigger
+  const trig=new THREE.Mesh(new THREE.BoxGeometry(11,19,11),new THREE.MeshBasicMaterial({visible:false}));
+  trig.position.set(x,y+9.5,z);
   trig.userData={type:'oilrig',prompt:'[ E ] Acceder al pozo VP-27',id:'oilrig'};
   scene.add(trig); interactables.push(trig);
 }
 
-function addCamp(x,y,z,trailers=false){
+// ── Camp ──────────────────────────────────────────────────
+function addCamp(x,y,z,trailers){
   if(trailers){
-    [[-4,0,'#c8c8c8'],[4,0,'#d0d0d0'],[0,5,'#cccccc']].forEach(([tx,tz,col])=>{
-      const mat=new THREE.MeshStandardMaterial({color:col,roughness:0.7,metalness:0.15});
-      const t=new THREE.Mesh(new THREE.BoxGeometry(4.5,2.4,2.8),mat);
-      t.position.set(x+tx,y+1.2,z+tz); t.castShadow=true; t.receiveShadow=true; scene.add(t);
-      // Windows
-      const wm=new THREE.MeshStandardMaterial({color:0x88aacc,roughness:0.1,metalness:0.1});
-      [-1.2,1.2].forEach(wx=>{
-        const w=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.5,0.05),wm);
-        w.position.set(x+tx+wx,y+1.5,z+tz-1.43); scene.add(w);
+    [[-4.5,0,'#c0c0c0'],[4.5,0,'#c8c8c8'],[0,5.5,'#c4c4c4']].forEach(([tx,tz,col])=>{
+      const mat=new THREE.MeshStandardMaterial({color:col,roughness:0.72,metalness:0.18});
+      const t=new THREE.Mesh(new THREE.BoxGeometry(4.8,2.5,3),mat);
+      t.position.set(x+tx,y+1.25,z+tz); t.castShadow=true; t.receiveShadow=true; scene.add(t);
+      const wm=new THREE.MeshStandardMaterial({color:0x88aacc,roughness:0.08,metalness:0.1});
+      [-1.3,1.3].forEach(wx=>{
+        const w=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.48,0.05),wm);
+        w.position.set(x+tx+wx,y+1.55,z+tz-1.52); scene.add(w);
       });
     });
-    addVehicle(x+10,y,z+2);
+    addVehicle(x+11,y,z+2.5);
   } else {
     // Tent
-    const tentGeo=new THREE.ConeGeometry(3.2,2.8,4);
-    const tent=new THREE.Mesh(tentGeo,new THREE.MeshStandardMaterial({color:0xc87820,roughness:0.9,metalness:0}));
-    tent.position.set(x,y+1.4,z); tent.rotation.y=Math.PI/4; tent.castShadow=true; scene.add(tent);
-    // Tent guy lines
+    const tentGeo=new THREE.ConeGeometry(3.4,3,4); displaceGeo(tentGeo,0.04);
+    const tent=new THREE.Mesh(tentGeo,new THREE.MeshStandardMaterial({color:0xc07820,roughness:0.92,metalness:0}));
+    tent.position.set(x,y+1.5,z); tent.rotation.y=Math.PI/4; tent.castShadow=true; scene.add(tent);
+    // Guy lines
     for(let i=0;i<4;i++){
       const a=i*Math.PI/2;
-      const line=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,3,4),
-        new THREE.MeshStandardMaterial({color:0xddddbb,roughness:0.9}));
-      line.position.set(x+Math.cos(a)*2.5,y+1,z+Math.sin(a)*2.5);
+      const lg=new THREE.CylinderGeometry(0.015,0.015,3.2,4);
+      const line=new THREE.Mesh(lg,new THREE.MeshStandardMaterial({color:0xddddbb,roughness:0.9}));
+      line.position.set(x+Math.cos(a)*2.6,y+1.1,z+Math.sin(a)*2.6);
       line.rotation.z=Math.PI/4*Math.cos(a); line.rotation.x=Math.PI/4*Math.sin(a);
       scene.add(line);
     }
   }
-  // Campfire stones
-  const stoneM=new THREE.MeshStandardMaterial({map:TEX.cliff,roughness:0.95,color:0x887766});
-  for(let i=0;i<7;i++){
-    const a=i/7*Math.PI*2, r=0.5;
-    const s=new THREE.Mesh(new THREE.DodecahedronGeometry(0.15,0),stoneM);
-    s.position.set(x+3+Math.cos(a)*r, y+0.12, z+2+Math.sin(a)*r);
+
+  // Campfire
+  const stoneM=new THREE.MeshStandardMaterial({map:TEX.rock,roughness:0.95,color:0x887766});
+  for(let i=0;i<8;i++){
+    const a=i/8*Math.PI*2, r=0.52;
+    const geo=new THREE.IcosahedronGeometry(0.14,0); displaceGeo(geo,0.12);
+    const s=new THREE.Mesh(geo,stoneM);
+    s.position.set(x+3+Math.cos(a)*r,y+0.1,z+2+Math.sin(a)*r);
     s.rotation.set(Math.random(),Math.random(),Math.random()); scene.add(s);
   }
-  // Fire log
-  const logM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.9,color:0x6a3a1a});
-  const log=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.9,6),logM);
-  log.position.set(x+3,y+0.12,z+2); log.rotation.z=Math.PI/2.5; scene.add(log);
-  const log2=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.9,6),logM);
-  log2.position.set(x+3,y+0.12,z+2); log2.rotation.z=-Math.PI/2.5; log2.rotation.y=Math.PI/4; scene.add(log2);
-  // Fire glow
-  const fireLight=new THREE.PointLight(0xff6a00,2.5,10);
-  fireLight.position.set(x+3,y+0.9,z+2); scene.add(fireLight);
-  state.campfire={light:fireLight};
-  // Camp trigger
-  const cTrig=new THREE.Mesh(new THREE.BoxGeometry(2.5,2,2.5),new THREE.MeshBasicMaterial({visible:false}));
-  cTrig.position.set(x+3,y+1,z+2);
-  cTrig.userData={type:'campfire',prompt:'[ E ] Descansar en el campamento',id:'campfire'};
-  scene.add(cTrig); interactables.push(cTrig);
+  const logM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.92,color:0x5a3018});
+  const log1=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.95,7),logM);
+  log1.position.set(x+3,y+0.1,z+2); log1.rotation.z=Math.PI/2.4; scene.add(log1);
+  const log2=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.95,7),logM);
+  log2.position.set(x+3,y+0.1,z+2); log2.rotation.z=-Math.PI/2.4; log2.rotation.y=Math.PI/3.5; scene.add(log2);
+  const fireL=new THREE.PointLight(0xff6500,2.8,10);
+  fireL.position.set(x+3,y+0.85,z+2); scene.add(fireL);
+  state.campfire={light:fireL};
+
   // Sample table
-  const tableMat=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.85,color:0x7a5c3a});
-  const table=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.08,0.8),tableMat);
-  table.position.set(x-3,y+0.76,z-2); scene.add(table);
-  // Legs
-  [[-0.7,-0.35],[0.7,-0.35],[-0.7,0.35],[0.7,0.35]].forEach(([lx,lz])=>{
-    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.76,6),tableMat);
-    leg.position.set(x-3+lx,y+0.38,z-2+lz); scene.add(leg);
+  const tableM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.88,color:0x6a4c2a});
+  const table=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.07,0.85),tableM);
+  table.position.set(x-3,y+0.78,z-2); scene.add(table);
+  [[-0.72,-0.36],[0.72,-0.36],[-0.72,0.36],[0.72,0.36]].forEach(([lx,lz])=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.78,6),tableM);
+    leg.position.set(x-3+lx,y+0.39,z-2+lz); scene.add(leg);
   });
-  // Microscope on table
-  const scope=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.3,8),new THREE.MeshStandardMaterial({color:0x222222,metalness:0.8,roughness:0.3}));
-  scope.position.set(x-3,y+0.95,z-2); scene.add(scope);
-  const tableTrig=new THREE.Mesh(new THREE.BoxGeometry(2.5,1.5,1.5),new THREE.MeshBasicMaterial({visible:false}));
-  tableTrig.position.set(x-3,y+0.8,z-2);
+  const scope=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.28,8),
+    new THREE.MeshStandardMaterial({color:0x1a1a1a,metalness:0.88,roughness:0.28}));
+  scope.position.set(x-3,y+0.97,z-2); scene.add(scope);
+
+  // Triggers
+  const campTrig=new THREE.Mesh(new THREE.BoxGeometry(2.8,2,2.8),new THREE.MeshBasicMaterial({visible:false}));
+  campTrig.position.set(x+3,y+1,z+2);
+  campTrig.userData={type:'campfire',prompt:'[ E ] Descansar en el campamento',id:'campfire'};
+  scene.add(campTrig); interactables.push(campTrig);
+  const tableTrig=new THREE.Mesh(new THREE.BoxGeometry(2.8,1.6,1.6),new THREE.MeshBasicMaterial({visible:false}));
+  tableTrig.position.set(x-3,y+0.9,z-2);
   tableTrig.userData={type:'table',prompt:'[ E ] Analizar muestras en mesa de trabajo',id:'table'};
   scene.add(tableTrig); interactables.push(tableTrig);
 }
 
 function addVehicle(x,y,z){
-  const bodyM=new THREE.MeshStandardMaterial({color:0x2d5a1a,roughness:0.6,metalness:0.3});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(4.5,1.3,2.2),bodyM);
-  body.position.set(x,y+1,z); body.castShadow=true; scene.add(body);
-  const cab=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.1,2),bodyM);
-  cab.position.set(x+0.7,y+1.95,z); scene.add(cab);
-  const glass=new THREE.MeshStandardMaterial({color:0x88aacc,roughness:0.05,metalness:0.1,transparent:true,opacity:0.7});
-  const windshield=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.8,1.7),glass);
-  windshield.position.set(x+1.8,y+2.0,z); scene.add(windshield);
-  const wheelM=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.9,metalness:0});
-  const rimM=new THREE.MeshStandardMaterial({color:0x888888,roughness:0.4,metalness:0.8});
-  [[-1.5,-1.15],[-1.5,1.15],[1.5,-1.15],[1.5,1.15]].forEach(([wx,wz])=>{
-    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.25,12),wheelM);
-    w.rotation.z=Math.PI/2; w.position.set(x+wx,y+0.42,z+wz); scene.add(w);
-    const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.27,8),rimM);
-    rim.rotation.z=Math.PI/2; rim.position.set(x+wx,y+0.42,z+wz); scene.add(rim);
+  const bodyM=new THREE.MeshStandardMaterial({color:0x2d5a1a,roughness:0.62,metalness:0.32});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(4.8,1.35,2.4),bodyM);
+  body.position.set(x,y+1.05,z); body.castShadow=true; scene.add(body);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(2.3,1.1,2.2),bodyM);
+  cab.position.set(x+0.7,y+2.0,z); scene.add(cab);
+  const glass=new THREE.MeshStandardMaterial({color:0x88aacc,roughness:0.05,metalness:0.1,transparent:true,opacity:0.72});
+  const wind=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.82,1.85),glass);
+  wind.position.set(x+1.85,y+2.05,z); scene.add(wind);
+  const wheelM=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.92,metalness:0});
+  const rimM=new THREE.MeshStandardMaterial({color:0x888888,roughness:0.4,metalness:0.85});
+  [[-1.6,-1.18],[-1.6,1.18],[1.6,-1.18],[1.6,1.18]].forEach(([wx,wz])=>{
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.44,0.44,0.28,12),wheelM);
+    w.rotation.z=Math.PI/2; w.position.set(x+wx,y+0.44,z+wz); scene.add(w);
+    const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.3,10),rimM);
+    rim.rotation.z=Math.PI/2; rim.position.set(x+wx,y+0.44,z+wz); scene.add(rim);
   });
 }
 
-// ══════════════════════════════════════════════════════
-// MOUSE / CONTROLS (pointer lock fixed)
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// MOUSE / CONTROLS
+// ══════════════════════════════════════════════════════════
 const keys={};
-let pitch=0, yaw=0;
-let vy=0, onGround=false;
+let pitch=0, yaw=0, vy=0, onGround=false, mouseLocked=false;
 const SPEED=6.5, GRAV=-22;
 
-// Pointer lock robust setup
-let mouseLocked=false;
-
 function requestLock(){
-  if(!state.dialogOpen && !state.paused && state.job){
-    canvas.requestPointerLock();
-  }
+  if(!state.dialogOpen&&!state.paused&&state.job) canvas.requestPointerLock();
 }
-
-canvas.addEventListener('click', requestLock);
-
-document.addEventListener('pointerlockchange', ()=>{
-  mouseLocked = (document.pointerLockElement === canvas);
-  document.getElementById('lock-prompt').style.display =
-    (state.job && !mouseLocked && !state.dialogOpen) ? 'block' : 'none';
+canvas.addEventListener('click',requestLock);
+document.addEventListener('pointerlockchange',()=>{
+  mouseLocked=(document.pointerLockElement===canvas);
+  document.getElementById('lock-prompt').style.display=(state.job&&!mouseLocked&&!state.dialogOpen)?'block':'none';
 });
-
-document.addEventListener('mousemove', e=>{
+document.addEventListener('mousemove',e=>{
   if(!mouseLocked) return;
-  yaw   -= e.movementX * 0.0022;
-  pitch -= e.movementY * 0.0022;
-  pitch  = Math.max(-1.3, Math.min(1.3, pitch));
+  yaw  -=e.movementX*0.0022;
+  pitch-=e.movementY*0.0022;
+  pitch =Math.max(-1.28,Math.min(1.28,pitch));
 });
-
-document.addEventListener('keydown', e=>{
+document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Escape'){
-    if(state.dialogOpen){closeDialog();}
-    else if(mouseLocked){document.exitPointerLock();}
+    if(state.dialogOpen) closeDialog();
+    else if(mouseLocked) document.exitPointerLock();
   }
   const n=parseInt(e.key);
   if(n>=1&&n<=6) selectSlot(n-1);
-  if(e.code==='KeyE' && state.nearObject && !state.dialogOpen) interact(state.nearObject.userData);
-  if(e.code==='KeyF') useItem();
+  if(e.code==='KeyE'&&state.nearObject&&!state.dialogOpen) interact(state.nearObject.userData);
+  if(e.code==='KeyF'){ useItem(); triggerSwing(); }
 });
-document.addEventListener('keyup', e=>{keys[e.code]=false;});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
 
 function selectSlot(n){
   state.selectedSlot=n;
   document.querySelectorAll('.inv-slot').forEach((s,i)=>s.classList.toggle('active',i===n));
+  const item=state.inventory[n];
+  document.getElementById('tool-label').textContent=item.name||'';
 }
 
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // RAYCASTING
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 const raycaster=new THREE.Raycaster();
-const REACH=6;
+const REACH=5.5;
 function checkInteractables(){
   raycaster.setFromCamera(new THREE.Vector2(0,0),camera);
   const hits=raycaster.intersectObjects(interactables);
   const prompt=document.getElementById('interact-prompt');
-  if(hits.length && hits[0].distance<REACH){
+  if(hits.length&&hits[0].distance<REACH){
     state.nearObject=hits[0].object;
     prompt.textContent=state.nearObject.userData.prompt||'[ E ] Interactuar';
     prompt.style.display='block';
@@ -1394,11 +1572,12 @@ function checkInteractables(){
   }
 }
 
-// ══════════════════════════════════════════════════════
-// INTERACTIONS / DIALOGS
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// INTERACTIONS
+// ══════════════════════════════════════════════════════════
 function interact(data){
   if(!data) return;
+  triggerSwing();
   switch(data.type){
     case 'rock':
       if(state.inventory[2].count>0){
@@ -1408,64 +1587,87 @@ function interact(data){
         showNotif('🪨 Muestra recolectada (+$500)');
         updateInventoryUI(); updateTasks(); updateMoney();
         state.energy=Math.max(0,state.energy-5);
+        updateHUD();
       } else showNotif('¡Sin kits de muestra! Analizá en la mesa.');
       break;
+
     case 'mineshaft':
       openDialog('Socavón Principal',
-        'El socavón baja ~40 m siguiendo una veta de calcopirita. Temperatura: 18°C. Humedad: 82%. ¿Qué hacés?',
-        [{label:'Explorar interior',fn:()=>{state.money+=1500;showNotif('⛏️ Socavón explorado (+$1500)');state.logsRecorded++;updateTasks();updateMoney();closeDialog();}},
-         {label:'Cartografiar galería',fn:()=>{state.money+=800;showNotif('📋 Galería cartografiada (+$800)');closeDialog();}},
-         {label:'Salir',fn:closeDialog}]);
+        'El socavón baja ~40 m siguiendo una veta de calcopirita. Temperatura: 18 °C · Humedad: 82%. ¿Qué hacés?',
+        [
+          {label:'Explorar interior',fn:()=>{state.money+=1500;showNotif('⛏️ Socavón explorado (+$1.500)');state.logsRecorded++;updateTasks();updateMoney();closeDialog();}},
+          {label:'Cartografiar galería',fn:()=>{state.money+=800;showNotif('📋 Galería cartografiada (+$800)');closeDialog();}},
+          {label:'Volver',fn:closeDialog},
+        ]);
       break;
+
     case 'oilrig':
-      openDialog('Pozo VP-27 — Vaca Muerta',
-        'Perforando a 3.820 m en Fm. Vaca Muerta (Jurásico Sup.). ROP: 15 m/h | WOB: 22 klb | RPM: 120 | ECD: 1.62 g/cc.',
-        [{label:'Registrar MWD',fn:()=>{state.logsRecorded++;state.money+=2000;showNotif('📡 Log MWD registrado (+$2.000)');updateTasks();updateMoney();closeDialog();}},
-         {label:'Muestrear cutting',fn:()=>{state.samplesCollected++;state.money+=800;showNotif('🧪 Cutting recolectado (+$800)');updateTasks();updateMoney();closeDialog();}},
-         {label:'Columna litológica',fn:()=>openDialog('Litología del Pozo','Fm. Vaca Muerta: pelitas negras orgánicas y calizas micríticas (Titoniano). TOC: 4.8%. Madurez: Ro=1.1%. Potencial shale oil confirmado.',[{label:'Volver',fn:()=>interact(data)}])},
-         {label:'Cerrar',fn:closeDialog}]);
+      openDialog('Pozo VP-27 — Fm. Vaca Muerta',
+        'Perforando a 3.820 m (Titoniano). ROP: 15 m/h · WOB: 22 klb · RPM: 120 · ECD: 1.62 g/cc · H₂S: 12 ppm.',
+        [
+          {label:'Registrar MWD',fn:()=>{state.logsRecorded++;state.money+=2000;showNotif('📡 Log MWD registrado (+$2.000)');updateTasks();updateMoney();closeDialog();}},
+          {label:'Muestrear cutting',fn:()=>{state.samplesCollected++;state.money+=800;showNotif('🧪 Cutting recolectado (+$800)');updateTasks();updateMoney();closeDialog();}},
+          {label:'Litología del pozo',fn:()=>openDialog('Litología VP-27 @ 3.820 m','Pelitas negras orgánicas y calizas micríticas (Fm. Vaca Muerta, Titoniano). TOC: 4.8 % · Madurez Ro=1.1 % · Shale oil confirmado.',[{label:'Volver',fn:()=>interact(data)}])},
+          {label:'Cerrar',fn:closeDialog},
+        ]);
       break;
+
     case 'safety':
       openDialog('Estación de Seguridad AH-23',
-        'Plan de contingencia vigente. EPP requerido en área de perforación: casco, gafas, botas con puntera, guantes de nitrilo. H₂S detectado: 12 ppm (umbral 10). ¿Revisás el plan?',
-        [{label:'Revisar plan de emergencia',fn:()=>{showNotif('✅ EDP revisado');closeDialog();}},
-         {label:'Cerrar',fn:closeDialog}]);
+        'EPP requerido en área de perforación: casco, gafas, botas puntera de acero, guantes nitrilo. H₂S: 12 ppm (umbral: 10 ppm ⚠️). Plan de contingencia vigente.',
+        [
+          {label:'Revisar plan de emergencia',fn:()=>{showNotif('✅ EDP revisado');closeDialog();}},
+          {label:'Cerrar',fn:closeDialog},
+        ]);
       break;
+
     case 'campfire':
       openDialog('Campamento Base',
-        `Día ${state.day} — ${Math.round(state.hour)}:${String(Math.round(state.minute)).padStart(2,'0')} hs. Energía: ${Math.round(state.energy)}%. ¿Qué hacés?`,
-        [{label:'Dormir (avanzar día)',fn:()=>{advanceDay();closeDialog();}},
-         {label:'Tomar agua',fn:()=>{if(state.inventory[4].count>0){state.inventory[4].count--;state.energy=Math.min(100,state.energy+30);showNotif('🥤 +30 Energía');updateInventoryUI();}else showNotif('Sin agua!');closeDialog();}},
-         {label:'Cerrar',fn:closeDialog}]);
+        `Día ${state.day} — ${Math.floor(state.hour)}:${String(Math.floor(state.minute)).padStart(2,'0')} hs · Energía: ${Math.round(state.energy)}%`,
+        [
+          {label:'Dormir (avanzar día)',fn:()=>{advanceDay();closeDialog();}},
+          {label:'Tomar agua',fn:()=>{
+            const w=state.inventory[4];
+            if(w.count>0){w.count--;state.energy=Math.min(100,state.energy+30);showNotif('🥤 +30 Energía');updateInventoryUI();updateHUD();}
+            else showNotif('¡Sin agua!');
+            closeDialog();
+          }},
+          {label:'Cerrar',fn:closeDialog},
+        ]);
       break;
-    case 'cuttingpit':
-      openDialog('Pileta de Cutting — VP-27',
-        'Restos de perforación a 3.820 m. Se observan fragmentos de pelita negra con olor a hidrocarburo. ¿Tomás muestra?',
-        [{label:'Tomar muestra (1 kit)',fn:()=>{
-          if(state.inventory[2].count>0){
-            state.inventory[2].count--;
-            state.samplesCollected++;
-            state.money+=600;
-            showNotif('🧪 Cutting muestreado (+$600)');
-            updateInventoryUI(); updateTasks(); updateMoney();
-          } else showNotif('¡Sin kits de muestra!');
-          closeDialog();
-        }},
-        {label:'Describir litología',fn:()=>openDialog('Cutting VP-27 @ 3820m','Pelita negra, piritosa. Aroma a naftalénicos. Laminación paralela relíctica. TOC estimado >4%. Facies Fm. Vaca Muerta typical.',[{label:'Volver',fn:()=>interact(data)}])},
-        {label:'Cerrar',fn:closeDialog}]);
-      break;
+
     case 'table':
       openDialog('Mesa de Análisis',
-        `Muestras pendientes: ${state.samplesCollected}. Podés analizar las muestras para obtener datos y recuperar kits.`,
-        [{label:'Analizar todo',fn:()=>{
-          if(state.samplesCollected>0){
-            const m=state.samplesCollected*350; state.money+=m;
-            state.inventory[2].count=Math.min(5,state.inventory[2].count+state.samplesCollected);
-            showNotif(`🔬 Análisis completado +$${m.toLocaleString()}`); state.samplesCollected=0;
-            updateMoney(); updateInventoryUI();
-          } else showNotif('No hay muestras para analizar.');
-          closeDialog();
-        }},{label:'Cerrar',fn:closeDialog}]);
+        `Muestras pendientes: ${state.samplesCollected}. Analizá para recuperar kits y obtener datos.`,
+        [
+          {label:'Analizar todo',fn:()=>{
+            if(state.samplesCollected>0){
+              const m=state.samplesCollected*350; state.money+=m;
+              state.inventory[2].count=Math.min(5,state.inventory[2].count+state.samplesCollected);
+              showNotif(`🔬 Análisis completado +$${m.toLocaleString('es-AR')}`);
+              state.samplesCollected=0; updateMoney(); updateInventoryUI();
+            } else showNotif('No hay muestras para analizar.');
+            closeDialog();
+          }},
+          {label:'Cerrar',fn:closeDialog},
+        ]);
+      break;
+
+    case 'cuttingpit':
+      openDialog('Pileta de Cutting — VP-27',
+        'Fragmentos de pelita negra con olor a hidrocarburo. TOC estimado >4%. Fm. Vaca Muerta típico.',
+        [
+          {label:'Tomar muestra (1 kit)',fn:()=>{
+            if(state.inventory[2].count>0){
+              state.inventory[2].count--; state.samplesCollected++;
+              state.money+=600; showNotif('🧪 Cutting muestreado (+$600)');
+              updateInventoryUI(); updateTasks(); updateMoney();
+            } else showNotif('¡Sin kits!');
+            closeDialog();
+          }},
+          {label:'Describir litología',fn:()=>openDialog('Cutting VP-27 @ 3.820 m','Pelita negra, piritosa, laminación paralela relíctica. Olor naftalénico fuerte. Fluorescencia débil bajo UV.',[{label:'Volver',fn:()=>interact(data)}])},
+          {label:'Cerrar',fn:closeDialog},
+        ]);
       break;
   }
 }
@@ -1490,9 +1692,9 @@ function closeDialog(){
 }
 window.closeDialog=closeDialog;
 
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // TASKS / HUD
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 function initTasks(){
   if(state.job==='minero'){
     state.tasks=[
@@ -1512,8 +1714,7 @@ function initTasks(){
   updateTasks();
 }
 function updateTasks(){
-  const list=document.getElementById('task-list');
-  list.innerHTML='';
+  const list=document.getElementById('task-list'); list.innerHTML='';
   state.tasks.forEach(t=>{
     const d=document.createElement('div');
     d.className='task-item'+(t.done()?' done':'');
@@ -1526,7 +1727,7 @@ function updateHUD(){
   document.getElementById('bar-health').style.width=state.health+'%';
   document.getElementById('val-health').textContent=Math.round(state.health);
 }
-function updateMoney(){ document.getElementById('money-val').textContent=state.money.toLocaleString('es-AR'); }
+function updateMoney(){document.getElementById('money-val').textContent=state.money.toLocaleString('es-AR');}
 function updateInventoryUI(){
   state.inventory.forEach((item,i)=>{
     document.getElementById('s'+i).textContent=item.icon;
@@ -1536,7 +1737,7 @@ function updateInventoryUI(){
 function showNotif(msg){
   const n=document.getElementById('notification');
   n.textContent=msg; n.classList.add('show');
-  setTimeout(()=>n.classList.remove('show'),2800);
+  clearTimeout(n._t); n._t=setTimeout(()=>n.classList.remove('show'),2600);
 }
 function useItem(){
   const item=state.inventory[state.selectedSlot];
@@ -1548,79 +1749,76 @@ function useItem(){
   }
 }
 
-// ══════════════════════════════════════════════════════
-// TIME / DAY
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// TIME / MINIMAP
+// ══════════════════════════════════════════════════════════
 function advanceDay(){
   state.day++; state.hour=8; state.minute=0;
   state.energy=100; state.health=Math.min(100,state.health+10);
   state.inventory[3].count=Math.min(5,state.inventory[3].count+1);
   state.inventory[4].count=Math.min(3,state.inventory[4].count+1);
   state.inventory[2].count=Math.min(5,state.inventory[2].count+1);
-  updateInventoryUI(); updateHUD();
-  showNotif(`☀️ Día ${state.day} — Buen descanso`);
+  updateInventoryUI(); updateHUD(); showNotif(`☀️ Día ${state.day} — Buen descanso`);
 }
 function updateTime(dt){
-  state.minute+=dt*(60/300);
+  state.minute+=dt*(60/320);
   if(state.minute>=60){state.minute-=60;state.hour++;}
   if(state.hour>=22){state.hour=22;state.minute=0;}
-  const h=String(Math.floor(state.hour)).padStart(2,'0');
-  const m=String(Math.floor(state.minute)).padStart(2,'0');
-  document.getElementById('time-label').textContent=h+':'+m;
+  document.getElementById('time-label').textContent=`${String(Math.floor(state.hour)).padStart(2,'0')}:${String(Math.floor(state.minute)).padStart(2,'0')}`;
   document.getElementById('day-label').textContent='DÍA '+state.day;
-  state.energy=Math.max(0,state.energy-dt*0.5);
-  updateHUD();
-  // Sun arc
-  const t=Math.max(0,Math.min(1,(state.hour-6)/16));
-  sun.position.set(Math.cos(t*Math.PI)*250,Math.sin(t*Math.PI)*220,100);
-  const warmth=t<0.5?0.75+t*0.5:0.75+(1-t)*0.5;
-  sun.color.setRGB(1,warmth*0.88,warmth*0.68);
-  sun.intensity=0.5+Math.sin(t*Math.PI)*0.9;
-  ambient.intensity=0.3+Math.sin(t*Math.PI)*0.4;
-  // Sky colour
-  const skyDay=new THREE.Color(state.job==='minero'?0x6090b0:0xb0c8d8);
-  const skyDusk=new THREE.Color(0x6040a0);
-  const blendFactor=t<0.1||t>0.9?0.7:0;
-  const skyCol=skyDay.clone().lerp(skyDusk,blendFactor*(1-Math.sin(t*Math.PI)));
-  scene.background=skyCol;
+  state.energy=Math.max(0,state.energy-dt*0.45);
 }
-
-// ══════════════════════════════════════════════════════
-// MINIMAP
-// ══════════════════════════════════════════════════════
 function drawMinimap(){
   const mc=document.getElementById('mm-canvas');
   const ctx=mc.getContext('2d');
-  ctx.clearRect(0,0,90,90);
-  ctx.fillStyle='rgba(20,30,20,0.85)'; ctx.fillRect(0,0,90,90);
-  const scale=0.13,cx=45,cy=45;
+  ctx.clearRect(0,0,88,88);
+  ctx.fillStyle='rgba(15,22,15,0.88)'; ctx.fillRect(0,0,88,88);
+  const scale=0.12,cx=44,cy=44;
   ctx.fillStyle='#f0c040'; ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fill();
   ctx.strokeStyle='#f0c040'; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.sin(yaw)*10,cy-Math.cos(yaw)*10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.sin(yaw)*11,cy-Math.cos(yaw)*11); ctx.stroke();
   interactables.forEach(obj=>{
     const dx=(obj.position.x-camera.position.x)*scale;
     const dz=(obj.position.z-camera.position.z)*scale;
     const mx=cx+dx,my=cy+dz;
-    if(mx>2&&mx<88&&my>2&&my<88){
-      ctx.fillStyle=obj===state.nearObject?'#ff8800':'#88aacc';
+    if(mx>2&&mx<86&&my>2&&my<86){
+      ctx.fillStyle=obj===state.nearObject?'#ff8800':'#5588bb';
       ctx.beginPath(); ctx.arc(mx,my,2.5,0,Math.PI*2); ctx.fill();
     }
   });
 }
 
-// ══════════════════════════════════════════════════════
-// GAME LOOP
-// ══════════════════════════════════════════════════════
-let ground, lastTime=0;
+// ══════════════════════════════════════════════════════════
+// SUN / SKY ANIMATION
+// ══════════════════════════════════════════════════════════
+function updateSky(ts){
+  updateHUD();
+  const t=Math.max(0,Math.min(1,(state.hour-6)/16));
+  sun.position.set(Math.cos(t*Math.PI)*280,Math.sin(t*Math.PI)*250,100);
+  const warmth=t<0.5?0.75+t*0.5:0.75+(1-t)*0.5;
+  sun.color.setRGB(1,warmth*0.88,warmth*0.65);
+  sun.intensity=0.4+Math.sin(t*Math.PI)*1.1;
+  ambient.intensity=0.25+Math.sin(t*Math.PI)*0.4;
+  const skyDay=new THREE.Color(state.job==='minero'?0x5888b0:0xbdc8d5);
+  const skyDusk=new THREE.Color(0x7050a0);
+  const bf=t<0.1||t>0.9?0.75:0;
+  scene.background=skyDay.clone().lerp(skyDusk,bf*(1-Math.sin(t*Math.PI)));
+}
 
+// ══════════════════════════════════════════════════════════
+// GAME LOOP
+// ══════════════════════════════════════════════════════════
+let lastTime=0;
 function loop(ts){
   requestAnimationFrame(loop);
   const dt=Math.min((ts-lastTime)/1000,0.05);
   lastTime=ts;
 
-  if(state.dialogOpen){renderer.render(scene,camera);return;}
+  if(state.dialogOpen){
+    renderer.render(scene,camera);
+    return;
+  }
 
-  // Camera
   camera.rotation.order='YXZ';
   camera.rotation.y=yaw;
   camera.rotation.x=pitch;
@@ -1631,46 +1829,56 @@ function loop(ts){
   if(keys['KeyS']||keys['ArrowDown'])  moveDir.z+=1;
   if(keys['KeyA']||keys['ArrowLeft'])  moveDir.x-=1;
   if(keys['KeyD']||keys['ArrowRight']) moveDir.x+=1;
-  if(moveDir.length()>0) moveDir.normalize().applyEuler(new THREE.Euler(0,yaw,0));
+  const moving=moveDir.length()>0;
+  if(moving) moveDir.normalize().applyEuler(new THREE.Euler(0,yaw,0));
   if((keys['Space']||keys['KeyJ'])&&onGround){vy=7;onGround=false;}
 
   vy+=GRAV*dt;
   camera.position.y+=vy*dt;
-  if(ground){
-    const ty=getTerrainY(camera.position.x,camera.position.z,ground)+1.75;
+  if(groundMesh){
+    const ty=getTerrainY(camera.position.x,camera.position.z,groundMesh)+1.78;
     if(camera.position.y<ty){camera.position.y=ty;vy=0;onGround=true;}
     else onGround=false;
   }
   camera.position.x+=moveDir.x*SPEED*dt;
   camera.position.z+=moveDir.z*SPEED*dt;
-  camera.position.x=Math.max(-320,Math.min(320,camera.position.x));
-  camera.position.z=Math.max(-320,Math.min(320,camera.position.z));
+  camera.position.x=Math.max(-380,Math.min(380,camera.position.x));
+  camera.position.z=Math.max(-380,Math.min(380,camera.position.z));
 
   checkInteractables();
   updateTime(dt);
   drawMinimap();
+  updateSky(ts);
+  updateViewModel(dt, moving);
 
-  // Campfire flicker
-  if(state.campfire) state.campfire.light.intensity=2+Math.sin(ts*0.012)*0.6+Math.sin(ts*0.031)*0.4;
-  // Flare stack
-  if(state.flareLight) state.flareLight.intensity=1.5+Math.sin(ts*0.04)*0.8+Math.random()*0.3;
+  // Flickers
+  if(state.campfire) state.campfire.light.intensity=2.5+Math.sin(ts*0.013)*0.7+Math.sin(ts*0.033)*0.35;
+  if(state.flareLight) state.flareLight.intensity=1.6+Math.sin(ts*0.042)*0.9+Math.random()*0.25;
 
-  // Biome text
-  const blabel=document.getElementById('biome-label');
+  // Biome label
+  const bl=document.getElementById('biome-label');
   if(state.job==='minero'){
     const h=camera.position.y;
-    blabel.textContent=h>35?'ZONA DE CUMBRES NEVADAS':h>15?'LADERA ANDINA':'BASE DE MONTAÑA';
+    bl.textContent=h>38?'ZONA DE CUMBRES NEVADAS':h>16?'LADERA ANDINA':'BASE DE MONTAÑA';
   } else {
-    const dist=Math.sqrt(camera.position.x**2+camera.position.z**2);
-    blabel.textContent=dist<45?'ÁREA DE PERFORACIÓN':dist<130?'ESTEPA PATAGÓNICA':'CUENCA NEUQUINA';
+    const d=Math.sqrt(camera.position.x**2+camera.position.z**2);
+    bl.textContent=d<50?'ÁREA DE PERFORACIÓN':d<140?'ESTEPA PATAGÓNICA':'CUENCA NEUQUINA';
   }
 
+  // Render world
+  renderer.autoClear=true;
   renderer.render(scene,camera);
+
+  // Render viewmodel on top (no depth test clash)
+  renderer.autoClear=false;
+  renderer.clearDepth();
+  renderer.render(vmScene,vmCamera);
+  renderer.autoClear=true;
 }
 
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // START
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 window.startGame=function(job){
   state.job=job;
   document.getElementById('menu-overlay').style.display='none';
@@ -1679,33 +1887,39 @@ window.startGame=function(job){
   initTextures();
 
   if(job==='minero'){
-    ground=buildMiningTerrain();
-    camera.position.set(0,8,-12);
+    buildMiningTerrain();
+    camera.position.set(0,8,-14);
     document.getElementById('job-title').textContent='GEÓLOGO DE MINA';
     document.getElementById('job-subtitle').textContent='Proyecto Andino – Unidad Minera Cordillera Norte';
-    state.inventory[0].name='Piolet geológico';
-    state.inventory[0].icon='⛏️';
-    document.getElementById('s0').textContent='⛏️';
+    state.inventory[0]={name:'Piolet geológico',icon:'⛏️',count:1,type:'tool'};
   } else {
-    ground=buildOilTerrain();
-    camera.position.set(0,3,-28);
+    buildOilTerrain();
+    camera.position.set(0,3,-30);
     document.getElementById('job-title').textContent='GEÓLOGO DE POZO';
     document.getElementById('job-subtitle').textContent='VP-27 – Fm. Vaca Muerta – Neuquén';
+    state.inventory[0]={name:'Llave ajustable',icon:'🔧',count:1,type:'tool'};
   }
-  initTasks(); updateMoney(); updateInventoryUI(); updateHUD();
-  // Show lock prompt
+
+  initViewModel();
+  initTasks();
+  updateMoney();
+  updateInventoryUI();
+  updateHUD();
+  selectSlot(0);
+
   document.getElementById('lock-prompt').style.display='block';
   requestAnimationFrame(loop);
 };
 
-// Resize
 window.addEventListener('resize',()=>{
   camera.aspect=window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
+  vmCamera.aspect=window.innerWidth/window.innerHeight;
+  vmCamera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth,window.innerHeight);
 });
 </script>
 </body>
 </html>
 HTMLEOF
-echo "Done: $(wc -l < /home/claude/geologo-simulator.html) lines"
+echo "Done — $(wc -l < /home/claude/geologo-simulator.html) lines"
