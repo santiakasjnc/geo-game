@@ -320,16 +320,131 @@ function makeNormalMap(srcTexture) {
   return t;
 }
 
+// Quartz vein texture for mining terrain
+function quartzVeinTexture() {
+  return makeTexture(256,512,(ctx,w,h)=>{
+    ctx.fillStyle='#4a4038'; ctx.fillRect(0,0,w,h);
+    // White/milky quartz veins
+    for(let i=0;i<8;i++){
+      const x0=Math.random()*w;
+      ctx.strokeStyle=`rgba(230,225,215,${0.6+Math.random()*0.4})`;
+      ctx.lineWidth=2+Math.random()*8;
+      ctx.beginPath(); let cx=x0,cy=0; ctx.moveTo(cx,cy);
+      for(let j=0;j<h/15;j++){cx+=(-10+Math.random()*20);cy+=15;ctx.lineTo(cx,cy);}
+      ctx.stroke();
+      // Secondary veinlets
+      ctx.strokeStyle=`rgba(210,200,185,${0.3+Math.random()*0.3})`;
+      ctx.lineWidth=0.5+Math.random()*2;
+      ctx.beginPath(); let cx2=x0+(-20+Math.random()*40),cy2=Math.random()*h*0.5; ctx.moveTo(cx2,cy2);
+      for(let j=0;j<6;j++){cx2+=(-18+Math.random()*36);cy2+=(-18+Math.random()*36);ctx.lineTo(cx2,cy2);}
+      ctx.stroke();
+    }
+    // Sulfide minerals (pyrite cubes)
+    for(let i=0;i<60;i++){
+      const x=Math.random()*w,y=Math.random()*h,s=2+Math.random()*5;
+      ctx.fillStyle=`rgba(${180+Math.random()*60},${160+Math.random()*40},${30+Math.random()*40},${0.7+Math.random()*0.3})`;
+      ctx.fillRect(x,y,s,s);
+    }
+    // Alteration halos (greenish)
+    for(let i=0;i<15;i++){
+      const x=Math.random()*w,y=Math.random()*h,r=8+Math.random()*20;
+      ctx.fillStyle=`rgba(100,130,80,${0.15+Math.random()*0.2})`;
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.7,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+// Scree / talus slope texture
+function screeTexture() {
+  return makeTexture(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#6b5f52'; ctx.fillRect(0,0,w,h);
+    // Angular rock fragments of varying sizes
+    for(let i=0;i<400;i++){
+      const x=Math.random()*w,y=Math.random()*h;
+      const s=3+Math.random()*18;
+      const l=30+Math.floor(Math.random()*25);
+      const sat=5+Math.random()*12;
+      ctx.fillStyle=`hsl(${25+Math.random()*20},${sat}%,${l}%)`;
+      const pts=4+Math.floor(Math.random()*3);
+      ctx.beginPath();
+      for(let p=0;p<pts;p++){
+        const a=(p/pts)*Math.PI*2+Math.random()*0.5;
+        const r=s*(0.5+Math.random()*0.5);
+        p===0?ctx.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r):ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r);
+      }
+      ctx.closePath(); ctx.fill();
+      // Shadow edge
+      ctx.strokeStyle=`rgba(10,5,0,${0.3+Math.random()*0.3})`; ctx.lineWidth=0.5; ctx.stroke();
+    }
+  });
+}
+
+// Dry riverbed / alluvial gravel
+function gravelTexture() {
+  return makeTexture(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#b0a088'; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<300;i++){
+      const x=Math.random()*w,y=Math.random()*h;
+      const rx=4+Math.random()*12, ry=3+Math.random()*8;
+      const l=45+Math.floor(Math.random()*30);
+      ctx.fillStyle=`hsl(${30+Math.random()*30},${8+Math.random()*15}%,${l}%)`;
+      ctx.beginPath(); ctx.ellipse(x,y,rx,ry,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(20,15,10,0.2)'; ctx.lineWidth=0.5; ctx.stroke();
+    }
+    // Sand between pebbles
+    for(let i=0;i<200;i++){
+      ctx.fillStyle=`rgba(200,180,130,${0.15+Math.random()*0.2})`;
+      ctx.beginPath(); ctx.arc(Math.random()*w,Math.random()*h,1+Math.random()*2,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+// Caliche / calrete hardpan (Patagonian feature)
+function calicheTexture() {
+  return makeTexture(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#d8ceb0'; ctx.fillRect(0,0,w,h);
+    // Whitish calcareous patches
+    for(let i=0;i<80;i++){
+      const x=Math.random()*w,y=Math.random()*h,r=5+Math.random()*25;
+      ctx.fillStyle=`rgba(240,235,218,${0.4+Math.random()*0.5})`;
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*(0.4+Math.random()*0.6),Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
+    }
+    // Cracks (polygonal desiccation)
+    for(let i=0;i<30;i++){
+      ctx.strokeStyle=`rgba(120,100,70,${0.3+Math.random()*0.4})`;
+      ctx.lineWidth=0.8+Math.random()*1.5;
+      ctx.beginPath();
+      let cx=Math.random()*w,cy=Math.random()*h; ctx.moveTo(cx,cy);
+      const segs=3+Math.floor(Math.random()*5);
+      for(let j=0;j<segs;j++){
+        cx+=(-30+Math.random()*60);cy+=(-30+Math.random()*60);
+        ctx.lineTo(cx,cy);
+      }
+      ctx.stroke();
+    }
+    // Reddish iron oxide staining
+    for(let i=0;i<40;i++){
+      const x=Math.random()*w,y=Math.random()*h,r=3+Math.random()*10;
+      ctx.fillStyle=`rgba(160,80,30,${0.1+Math.random()*0.2})`;
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.7,0,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
 // Pre-bake all textures once
 const TEX = {};
 function initTextures() {
-  TEX.rock    = rockTexture();       TEX.rock.repeat.set(12,12);
-  TEX.snow    = snowRockTexture();   TEX.snow.repeat.set(10,10);
-  TEX.steppe  = steppeTexture();     TEX.steppe.repeat.set(20,20);
-  TEX.shale   = shaleTexture();      TEX.shale.repeat.set(8,8);
-  TEX.cliff   = cliffTexture();      TEX.cliff.repeat.set(4,8);
-  TEX.wood    = woodTexture();       TEX.wood.repeat.set(2,4);
-  TEX.steel   = steelTexture();      TEX.steel.repeat.set(3,3);
+  TEX.rock    = rockTexture();        TEX.rock.repeat.set(12,12);
+  TEX.snow    = snowRockTexture();    TEX.snow.repeat.set(10,10);
+  TEX.steppe  = steppeTexture();      TEX.steppe.repeat.set(20,20);
+  TEX.shale   = shaleTexture();       TEX.shale.repeat.set(8,8);
+  TEX.cliff   = cliffTexture();       TEX.cliff.repeat.set(4,8);
+  TEX.wood    = woodTexture();        TEX.wood.repeat.set(2,4);
+  TEX.steel   = steelTexture();       TEX.steel.repeat.set(3,3);
+  TEX.quartz  = quartzVeinTexture();  TEX.quartz.repeat.set(3,6);
+  TEX.scree   = screeTexture();       TEX.scree.repeat.set(8,8);
+  TEX.gravel  = gravelTexture();      TEX.gravel.repeat.set(10,10);
+  TEX.caliche = calicheTexture();     TEX.caliche.repeat.set(12,12);
 }
 
 // ══════════════════════════════════════════════════════
@@ -476,12 +591,68 @@ function buildMiningTerrain() {
   // We'll tint it by height in animation
   scene.add(snowMesh);
 
-  // Rock outcrops
+  // Rock outcrops — agrupados como asomos geológicos reales
   for(let i=0;i<50;i++){
     const x=(Math.random()-0.5)*400,z=(Math.random()-0.5)*400;
     const gy=getTerrainY(x,z,ground);
     addRock(x,gy,z, 1+Math.random()*4, 0.5+Math.random()*2);
   }
+
+  // Clústers de afloramientos — imitan lineamientos estructurales
+  const lineaments=[
+    {ax:-60,az:-80,bx:60,bz:20,count:18},
+    {ax:30,az:60,bx:120,bz:100,count:12},
+    {ax:-100,az:30,bx:-40,bz:90,count:10},
+  ];
+  lineaments.forEach(ln=>{
+    for(let i=0;i<ln.count;i++){
+      const t=i/ln.count;
+      const jx=(Math.random()-0.5)*18, jz=(Math.random()-0.5)*18;
+      const x=ln.ax+(ln.bx-ln.ax)*t+jx;
+      const z=ln.az+(ln.bz-ln.az)*t+jz;
+      const gy=getTerrainY(x,z,ground);
+      const sz=0.8+Math.random()*3.5;
+      addRock(x,gy,z, sz, sz*(0.5+Math.random()*1.2));
+    }
+  });
+
+  // Escarpes / paredones de roca (afloramientos verticales de alto relieve)
+  addCliffFace(-40, getTerrainY(-40,40,ground), 40, 12, 5);
+  addCliffFace(60,  getTerrainY(60,-20,ground), -20, 18, 8);
+  addCliffFace(-80, getTerrainY(-80,-30,ground), -30, 8, 4);
+
+  // Venas de cuarzo expuestas en superficie
+  for(let i=0;i<12;i++){
+    const x=-80+Math.random()*160, z=-60+Math.random()*120;
+    const gy=getTerrainY(x,z,ground);
+    addQuartzVein(x, gy, z);
+  }
+
+  // Talud de detritos (scree) bajo los escarpes
+  addScreeSlope(-40, getTerrainY(-40,55,ground), 55, 14);
+  addScreeSlope(58,  getTerrainY(58,-30,ground), -30, 10);
+
+  // Lecho de quebrada seco (sedimentos aluviales)
+  addDryCreekBed(ground);
+
+  // Árboles/arbustos andinos (queñoas, arbustos de puna)
+  for(let i=0;i<30;i++){
+    const x=(Math.random()-0.5)*250, z=(Math.random()-0.5)*250;
+    const gy=getTerrainY(x,z,ground);
+    if(gy<25) addAndeanShrub(x,gy,z);
+  }
+  // Queñoas (árboles de altura) entre 15 y 35 m
+  for(let i=0;i<15;i++){
+    const x=(Math.random()-0.5)*200, z=(Math.random()-0.5)*200;
+    const gy=getTerrainY(x,z,ground);
+    if(gy>12 && gy<32) addQueñoa(x,gy,z);
+  }
+
+  // Señalización geológica de campo
+  addFieldMarker(-5, getTerrainY(-5,10,ground)+0.1, 10, 'EST-01');
+  addFieldMarker(35, getTerrainY(35,15,ground)+0.1, 15, 'EST-02');
+  addFieldMarker(-30, getTerrainY(-30,5,ground)+0.1, 5, 'EST-03');
+
   // Mine shaft
   addMineShaft(20,getTerrainY(20,30,ground)+0.1,30);
   // Camp
@@ -518,18 +689,55 @@ function buildOilTerrain() {
   ground.receiveShadow=true;
   scene.add(ground);
 
-  // Shale outcrops (horizontal)
+  // Afloramientos de pelita negra (Fm. Vaca Muerta) — en fajas
   for(let i=0;i<25;i++){
     const x=(Math.random()-0.5)*600,z=(Math.random()-0.5)*600;
     const gy=getTerrainY(x,z,ground);
     addShaleLayer(x,gy,z);
   }
-  // Sparse bushes
-  for(let i=0;i<100;i++){
+
+  // Crestones de arenisca — cuchillas orientadas NNO (típicas de la cuenca)
+  for(let i=0;i<8;i++){
+    const cx=-200+Math.random()*400, cz=-200+Math.random()*400;
+    addSandstoneCrest(cx, getTerrainY(cx,cz,ground), cz, 18+Math.random()*30);
+  }
+
+  // Hardpan de caliche (costras calcáreas superficiales)
+  for(let i=0;i<10;i++){
+    const x=(Math.random()-0.5)*500, z=(Math.random()-0.5)*500;
+    const gy=getTerrainY(x,z,ground);
+    addCalichePatch(x,gy,z);
+  }
+
+  // Cañadones (cañones pequeños de la estepa)
+  addCanyon(ground, -120, -80, 60, 30);
+  addCanyon(ground, 100, 60, -50, 25);
+
+  // Arbustos patagónicos — jarilla, zampa, molle
+  for(let i=0;i<150;i++){
     const x=(Math.random()-0.5)*600,z=(Math.random()-0.5)*600;
     const gy=getTerrainY(x,z,ground);
     addBush(x,gy,z);
   }
+  // Matas de coirón (pasto duro patagónico)
+  for(let i=0;i<200;i++){
+    const x=(Math.random()-0.5)*580, z=(Math.random()-0.5)*580;
+    const gy=getTerrainY(x,z,ground);
+    addCoiron(x,gy,z);
+  }
+
+  // Pileta de tratamiento (cutting pit)
+  addCuttingPit(ground, 55, 20);
+
+  // Línea de tendido eléctrico de baja tensión al equipo
+  addPowerLine(ground, -40, -40, 30, 30);
+
+  // Señalización de pozo (mojones)
+  addWellMarker(30, getTerrainY(30,30,ground)+0.1, 30);
+
+  // Camino de acceso de ripio (tierra compactada)
+  addAccessRoad(ground);
+
   // Oil rig
   addOilRig(30,getTerrainY(30,30,ground),30);
   // Camp / trailers
@@ -565,7 +773,7 @@ function addRock(x,y,z,sx,sy){
   m.castShadow=true; m.receiveShadow=true;
   scene.add(m);
   if(sx>1.5){
-    m.userData={type:'rock',prompt:'[ E ] Tomar muestra de roca',id:'rock_'+i};
+    m.userData={type:'rock',prompt:'[ E ] Tomar muestra de roca',id:'rock_'+Math.floor(x)+'_'+Math.floor(z)};
     interactables.push(m);
   }
 }
@@ -582,6 +790,321 @@ function addShaleLayer(x,y,z){
   if(w>5){
     m.userData={type:'rock',prompt:'[ E ] Muestrear pelita negra (Fm. Vaca Muerta)',id:'shale_'+x};
     interactables.push(m);
+  }
+}
+
+// ── Paredón de roca / escarpe ──────────────────────────
+function addCliffFace(x, y, z, width, height) {
+  const segs = Math.floor(width/2);
+  for(let i=0;i<segs;i++){
+    const ox = (i/segs - 0.5)*width;
+    const h = height*(0.6+Math.random()*0.8);
+    const w = width/segs*(0.7+Math.random()*0.6);
+    const mat = new THREE.MeshStandardMaterial({
+      map: TEX.cliff, roughness:0.92, metalness:0.02,
+      color: new THREE.Color().setHSL(0.07,0.1,0.28+Math.random()*0.12),
+    });
+    const geo = new THREE.BoxGeometry(w, h, 1.2+Math.random()*2);
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x+ox, y+h*0.5, z);
+    m.rotation.y = (-0.2+Math.random()*0.4);
+    m.castShadow = true; m.receiveShadow = true;
+    scene.add(m);
+    // Rocas caídas al pie (usamos y base ya que ground se asigna después)
+    for(let j=0;j<3;j++){
+      const rx=x+ox+(-3+Math.random()*6), rz=z+(1+Math.random()*4);
+      const rs=0.3+Math.random()*1.2;
+      addRock(rx,y,rz,rs,rs*(0.4+Math.random()*0.8));
+    }
+  }
+}
+
+// ── Vena de cuarzo expuesta ────────────────────────────
+function addQuartzVein(x, y, z) {
+  const len = 4+Math.random()*12;
+  const mat = new THREE.MeshStandardMaterial({
+    map: TEX.quartz, roughness:0.4, metalness:0.15,
+    color: new THREE.Color(0xf0ebe0),
+  });
+  const geo = new THREE.BoxGeometry(len, 0.15+Math.random()*0.35, 0.3+Math.random()*0.5);
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y+0.1, z);
+  m.rotation.y = Math.random()*Math.PI;
+  m.castShadow = true;
+  scene.add(m);
+  // Mineralización puntual (pequeños cristales)
+  for(let i=0;i<5;i++){
+    const cx = x+(-len/2+Math.random()*len), cz = z+(-0.4+Math.random()*0.8);
+    const sg = new THREE.OctahedronGeometry(0.06+Math.random()*0.12, 0);
+    const sm = new THREE.MeshStandardMaterial({color:0xf8f5ee, roughness:0.1, metalness:0.05});
+    const s = new THREE.Mesh(sg, sm);
+    s.position.set(cx, y+0.18+Math.random()*0.08, cz);
+    s.rotation.set(Math.random(),Math.random(),Math.random());
+    scene.add(s);
+  }
+  if(len>7){
+    m.userData = {type:'rock', prompt:'[ E ] Muestrear vena de cuarzo', id:'quartz_'+Math.floor(x)};
+    interactables.push(m);
+  }
+}
+
+// ── Talud de detritos (scree slope) ───────────────────
+function addScreeSlope(x, y, z, radius) {
+  const mat = new THREE.MeshStandardMaterial({map:TEX.scree, roughness:0.96, metalness:0});
+  const geo = new THREE.CylinderGeometry(radius, radius*1.3, 0.4, 12);
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y+0.18, z);
+  m.rotation.y = Math.random()*Math.PI;
+  m.receiveShadow = true;
+  scene.add(m);
+  // Bloques dispersos sobre el talud (usamos y ya que ground puede no estar aún)
+  for(let i=0;i<18;i++){
+    const a = Math.random()*Math.PI*2, r = Math.random()*radius;
+    const bx=x+Math.cos(a)*r, bz=z+Math.sin(a)*r;
+    const bs=0.15+Math.random()*0.8;
+    addRock(bx,y+bs*0.3,bz, bs, bs*(0.3+Math.random()*0.6));
+  }
+}
+
+// ── Lecho de quebrada seco ─────────────────────────────
+function addDryCreekBed(groundMesh) {
+  const mat = new THREE.MeshStandardMaterial({map:TEX.gravel, roughness:0.97, metalness:0});
+  // Tramo sinuoso de la quebrada
+  const pts = [];
+  let cx=-60, cz=-40;
+  for(let i=0;i<12;i++){
+    cx+=10+Math.random()*12; cz+=(-8+Math.random()*16);
+    const gy=getTerrainY(cx,cz,groundMesh)||0;
+    pts.push(new THREE.Vector3(cx, gy+0.05, cz));
+  }
+  for(let i=0;i<pts.length-1;i++){
+    const p=pts[i], n=pts[i+1];
+    const dx=n.x-p.x, dz=n.z-p.z;
+    const len=Math.sqrt(dx*dx+dz*dz);
+    const mx=(p.x+n.x)/2, mz=(p.z+n.z)/2;
+    const gy=getTerrainY(mx,mz,groundMesh)||0;
+    const w=1.5+Math.random()*2;
+    const geo=new THREE.BoxGeometry(len, 0.06, w);
+    const seg=new THREE.Mesh(geo, mat);
+    seg.position.set(mx, gy+0.04, mz);
+    seg.rotation.y=Math.atan2(dz,dx);
+    seg.receiveShadow=true;
+    scene.add(seg);
+    // Cantos rodados en el lecho
+    for(let j=0;j<4;j++){
+      const bx=mx+(-w/2+Math.random()*w), bz=mz+(-w/2+Math.random()*w);
+      const bs=0.1+Math.random()*0.35;
+      const bg=new THREE.SphereGeometry(bs,5,4);
+      const bm=new THREE.MeshStandardMaterial({map:TEX.rock,roughness:0.88,metalness:0});
+      const bobj=new THREE.Mesh(bg,bm);
+      bobj.position.set(bx,gy+bs*0.4,bz);
+      bobj.rotation.set(Math.random(),Math.random(),Math.random());
+      scene.add(bobj);
+    }
+  }
+}
+
+// ── Arbustos andinos (puna/prepuna) ───────────────────
+function addAndeanShrub(x, y, z) {
+  const h=0.3+Math.random()*0.7;
+  // Ramitas
+  const stemM=new THREE.MeshStandardMaterial({color:0x5a3a1a,roughness:1,metalness:0});
+  const stemG=new THREE.CylinderGeometry(0.02,0.04,h,5);
+  const stem=new THREE.Mesh(stemG,stemM);
+  stem.position.set(x,y+h*0.5,z); stem.castShadow=true; scene.add(stem);
+  // Follaje
+  const hue=0.15+Math.random()*0.12; // amarillo-verde seco
+  const leafM=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(hue,0.5,0.2+Math.random()*0.15),roughness:1,metalness:0});
+  for(let i=0;i<3+Math.floor(Math.random()*3);i++){
+    const a=Math.random()*Math.PI*2, r=0.15+Math.random()*0.3;
+    const lg=new THREE.SphereGeometry(0.12+Math.random()*0.18,4,3);
+    const lm=new THREE.Mesh(lg,leafM);
+    lm.position.set(x+Math.cos(a)*r,y+h*(0.5+Math.random()*0.6),z+Math.sin(a)*r);
+    lm.scale.set(1,0.5+Math.random()*0.5,1);
+    lm.castShadow=true; scene.add(lm);
+  }
+}
+
+// ── Queñoa (árbol andino, Polylepis) ──────────────────
+function addQueñoa(x, y, z) {
+  const h=1.5+Math.random()*2;
+  const trunkM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.95,metalness:0,color:0x6b3a1a});
+  const trunkG=new THREE.CylinderGeometry(0.06,0.1,h,6);
+  const trunk=new THREE.Mesh(trunkG,trunkM);
+  trunk.position.set(x,y+h*0.5,z); trunk.castShadow=true; scene.add(trunk);
+  // Canopy irregular (varias esferas pequeñas)
+  const canopyM=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(0.25+Math.random()*0.06,0.4,0.2+Math.random()*0.1),roughness:1,metalness:0});
+  const nballs=5+Math.floor(Math.random()*6);
+  for(let i=0;i<nballs;i++){
+    const a=Math.random()*Math.PI*2, r=0.3+Math.random()*0.6;
+    const bs=0.3+Math.random()*0.5;
+    const bg=new THREE.SphereGeometry(bs,6,5);
+    const bm=new THREE.Mesh(bg,canopyM);
+    bm.position.set(x+Math.cos(a)*r,y+h+Math.random()*0.8,z+Math.sin(a)*r);
+    bm.castShadow=true; scene.add(bm);
+  }
+}
+
+// ── Jalón topográfico / estaca de campo ───────────────
+function addFieldMarker(x, y, z, label) {
+  const poleM=new THREE.MeshStandardMaterial({color:0xee2222,roughness:0.6,metalness:0.3});
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.8,6),poleM);
+  pole.position.set(x,y+0.9,z); scene.add(pole);
+  // Banderín naranja
+  const flagM=new THREE.MeshStandardMaterial({color:0xff6600,roughness:0.8,metalness:0,side:THREE.DoubleSide});
+  const flagG=new THREE.PlaneGeometry(0.35,0.22);
+  const flag=new THREE.Mesh(flagG,flagM);
+  flag.position.set(x+0.17,y+1.75,z); flag.rotation.y=Math.random()*0.6; scene.add(flag);
+}
+
+// ── Crestón de arenisca (steppe sandstone ridge) ──────
+function addSandstoneCrest(x, y, z, len) {
+  const mat=new THREE.MeshStandardMaterial({map:TEX.cliff,roughness:0.85,metalness:0.02,color:new THREE.Color().setHSL(0.08,0.25,0.45+Math.random()*0.1)});
+  const segs=Math.floor(len/3);
+  const angle=Math.PI*(0.55+Math.random()*0.3); // NNO orientación típica
+  for(let i=0;i<segs;i++){
+    const t=(i/segs-0.5)*len;
+    const cx=x+Math.cos(angle)*t+(-2+Math.random()*4);
+    const cz=z+Math.sin(angle)*t+(-2+Math.random()*4);
+    const gy=y;
+    const h=0.4+Math.random()*1.8;
+    const w=1.2+Math.random()*2.5, d=0.4+Math.random()*0.8;
+    const geo=new THREE.BoxGeometry(w,h,d);
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(cx,gy+h*0.5,cz);
+    m.rotation.y=angle+(-0.3+Math.random()*0.6);
+    m.castShadow=true; m.receiveShadow=true;
+    scene.add(m);
+  }
+}
+
+// ── Parche de caliche ─────────────────────────────────
+function addCalichePatch(x, y, z) {
+  const r=3+Math.random()*8;
+  const mat=new THREE.MeshStandardMaterial({map:TEX.caliche,roughness:0.96,metalness:0,color:new THREE.Color(0xe8dfc8)});
+  const geo=new THREE.CylinderGeometry(r,r*1.1,0.12,10);
+  const m=new THREE.Mesh(geo,mat);
+  m.position.set(x,y+0.07,z);
+  m.rotation.y=Math.random()*Math.PI;
+  m.receiveShadow=true;
+  scene.add(m);
+}
+
+// ── Cañadón (pequeño cañón de la estepa) ──────────────
+function addCanyon(groundMesh, x, z, length, width) {
+  // Paredes del cañadón con material de pelita
+  const wallMat=new THREE.MeshStandardMaterial({map:TEX.shale,roughness:0.88,metalness:0.01,color:new THREE.Color().setHSL(0.07,0.18,0.32)});
+  const steps=Math.floor(Math.abs(length)/8);
+  for(let i=0;i<steps;i++){
+    const t=i/steps;
+    const cx=x, cz_seg=z+length*t;
+    const gy=getTerrainY(cx,cz_seg,groundMesh)||0;
+    // Pared izquierda
+    const lw=new THREE.Mesh(new THREE.BoxGeometry(0.8+Math.random()*1.2,2+Math.random()*3,8),wallMat);
+    lw.position.set(cx-width/2,gy+1.5,cz_seg); lw.castShadow=true; scene.add(lw);
+    // Pared derecha
+    const rw=new THREE.Mesh(new THREE.BoxGeometry(0.8+Math.random()*1.2,2+Math.random()*3,8),wallMat);
+    rw.position.set(cx+width/2,gy+1.5,cz_seg); rw.castShadow=true; scene.add(rw);
+    // Fondo de cañadón con grava
+    const floor=new THREE.Mesh(new THREE.BoxGeometry(width,0.1,8),new THREE.MeshStandardMaterial({map:TEX.gravel,roughness:0.96,metalness:0}));
+    floor.position.set(cx,gy+0.05,cz_seg); floor.receiveShadow=true; scene.add(floor);
+  }
+}
+
+// ── Mata de coirón (gramínea dura patagónica) ─────────
+function addCoiron(x, y, z) {
+  const h=0.25+Math.random()*0.5;
+  const r=0.12+Math.random()*0.25;
+  const mat=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(0.12+Math.random()*0.05,0.45,0.28+Math.random()*0.1),roughness:1,metalness:0});
+  // Tallo central
+  const sg=new THREE.ConeGeometry(r*0.2,h,5);
+  const s=new THREE.Mesh(sg,mat);
+  s.position.set(x,y+h*0.5,z); scene.add(s);
+  // Hojas en abanico
+  for(let i=0;i<8;i++){
+    const a=(i/8)*Math.PI*2;
+    const lg=new THREE.CylinderGeometry(0.01,0.02,h*(0.7+Math.random()*0.5),3);
+    const lm=new THREE.Mesh(lg,mat);
+    lm.position.set(x+Math.cos(a)*r*0.5,y+h*0.35,z+Math.sin(a)*r*0.5);
+    lm.rotation.z=Math.cos(a)*0.4; lm.rotation.x=Math.sin(a)*0.4;
+    scene.add(lm);
+  }
+}
+
+// ── Pileta de corte (cutting pit) ─────────────────────
+function addCuttingPit(groundMesh, x, z) {
+  const y=getTerrainY(x,z,groundMesh)||0;
+  const pitMat=new THREE.MeshStandardMaterial({color:0x3a3028,roughness:0.95,metalness:0});
+  // Borde de la pileta
+  const rim=new THREE.Mesh(new THREE.BoxGeometry(6,0.3,6),new THREE.MeshStandardMaterial({color:0x888880,roughness:0.8,metalness:0.1}));
+  rim.position.set(x,y+0.15,z); scene.add(rim);
+  // Líquido oscuro (corte de perforación)
+  const liq=new THREE.Mesh(new THREE.BoxGeometry(5.4,0.05,5.4),new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.2,metalness:0.1}));
+  liq.position.set(x,y+0.22,z); scene.add(liq);
+  // Etiqueta interactiva
+  const trig=new THREE.Mesh(new THREE.BoxGeometry(6,1.5,6),new THREE.MeshBasicMaterial({visible:false}));
+  trig.position.set(x,y+0.75,z);
+  trig.userData={type:'cuttingpit',prompt:'[ E ] Tomar muestra de cutting',id:'cuttingpit'};
+  scene.add(trig); interactables.push(trig);
+}
+
+// ── Tendido eléctrico (baja tensión) ──────────────────
+function addPowerLine(groundMesh, x1, z1, x2, z2) {
+  const poleMat=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.85,metalness:0,color:0x5a3a18});
+  const wireMat=new THREE.MeshStandardMaterial({color:0x222222,roughness:0.7,metalness:0.6});
+  const steps=4;
+  const poles=[];
+  for(let i=0;i<=steps;i++){
+    const t=i/steps;
+    const px=x1+(x2-x1)*t, pz=z1+(z2-z1)*t;
+    const py=getTerrainY(px,pz,groundMesh)||0;
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,5,6),poleMat);
+    pole.position.set(px,py+2.5,pz); pole.castShadow=true; scene.add(pole);
+    // Cruceta
+    const cross=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.1,0.1),poleMat);
+    cross.position.set(px,py+5.1,pz); scene.add(cross);
+    poles.push({x:px,y:py+5,z:pz});
+  }
+  // Cables (líneas entre postes)
+  for(let i=0;i<poles.length-1;i++){
+    const a=poles[i], b=poles[i+1];
+    const dx=b.x-a.x, dz=b.z-a.z;
+    const len=Math.sqrt(dx*dx+dz*dz);
+    const wire=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,len,4),wireMat);
+    wire.position.set((a.x+b.x)/2,(a.y+b.y)/2-0.3,(a.z+b.z)/2);
+    wire.rotation.z=Math.PI/2; wire.rotation.y=Math.atan2(dz,dx);
+    scene.add(wire);
+  }
+}
+
+// ── Mojón identificador de pozo ───────────────────────
+function addWellMarker(x, y, z) {
+  const mat=new THREE.MeshStandardMaterial({color:0xeeee00,roughness:0.6,metalness:0.2});
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,1.5,6),mat);
+  post.position.set(x+8,y+0.75,z+8); scene.add(post);
+  const sign=new THREE.Mesh(new THREE.BoxGeometry(1,0.6,0.06),new THREE.MeshStandardMaterial({color:0x1144aa,roughness:0.6}));
+  sign.position.set(x+8,y+1.7,z+8); scene.add(sign);
+}
+
+// ── Camino de ripio (acceso al pozo) ──────────────────
+function addAccessRoad(groundMesh) {
+  const mat=new THREE.MeshStandardMaterial({map:TEX.gravel,roughness:0.94,metalness:0,color:new THREE.Color(0xb8a888)});
+  // Trayecto recto desde el campamento al pozo
+  const pts=[
+    {x:0,z:-25},{x:5,z:-15},{x:10,z:-5},{x:18,z:5},{x:25,z:18},{x:30,z:28}
+  ];
+  for(let i=0;i<pts.length-1;i++){
+    const a=pts[i], b=pts[i+1];
+    const dx=b.x-a.x, dz=b.z-a.z;
+    const len=Math.sqrt(dx*dx+dz*dz);
+    const mx=(a.x+b.x)/2, mz=(a.z+b.z)/2;
+    const gy=getTerrainY(mx,mz,groundMesh)||0;
+    const geo=new THREE.BoxGeometry(len, 0.08, 3.2);
+    const seg=new THREE.Mesh(geo,mat);
+    seg.position.set(mx,gy+0.04,mz);
+    seg.rotation.y=Math.atan2(dz,dx);
+    seg.receiveShadow=true;
+    scene.add(seg);
   }
 }
 
@@ -914,6 +1437,22 @@ function interact(data){
         [{label:'Dormir (avanzar día)',fn:()=>{advanceDay();closeDialog();}},
          {label:'Tomar agua',fn:()=>{if(state.inventory[4].count>0){state.inventory[4].count--;state.energy=Math.min(100,state.energy+30);showNotif('🥤 +30 Energía');updateInventoryUI();}else showNotif('Sin agua!');closeDialog();}},
          {label:'Cerrar',fn:closeDialog}]);
+      break;
+    case 'cuttingpit':
+      openDialog('Pileta de Cutting — VP-27',
+        'Restos de perforación a 3.820 m. Se observan fragmentos de pelita negra con olor a hidrocarburo. ¿Tomás muestra?',
+        [{label:'Tomar muestra (1 kit)',fn:()=>{
+          if(state.inventory[2].count>0){
+            state.inventory[2].count--;
+            state.samplesCollected++;
+            state.money+=600;
+            showNotif('🧪 Cutting muestreado (+$600)');
+            updateInventoryUI(); updateTasks(); updateMoney();
+          } else showNotif('¡Sin kits de muestra!');
+          closeDialog();
+        }},
+        {label:'Describir litología',fn:()=>openDialog('Cutting VP-27 @ 3820m','Pelita negra, piritosa. Aroma a naftalénicos. Laminación paralela relíctica. TOC estimado >4%. Facies Fm. Vaca Muerta typical.',[{label:'Volver',fn:()=>interact(data)}])},
+        {label:'Cerrar',fn:closeDialog}]);
       break;
     case 'table':
       openDialog('Mesa de Análisis',
